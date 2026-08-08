@@ -188,8 +188,22 @@ def flatten_rinci_row(
     adset_map: Dict[str, Dict[str, Any]],
     since: str,
     until: str,
+    daily_result: Optional[Dict[str, str]] = None,
+    include_daily_result: bool = False,
 ) -> Dict[str, Any]:
-    result_value, cost_value = choose_primary_result(row)
+    # Mode rinci tidak lagi mengambil Hasil dari row hourly. Hasil resmi diambil
+    # dari query harian tanpa breakdown dan hanya ditulis sekali per ad+tanggal.
+    daily_result = daily_result or {}
+    result_value = (
+        str(daily_result.get("result_value", ""))
+        if include_daily_result
+        else ""
+    )
+    cost_value = (
+        str(daily_result.get("cost_value", ""))
+        if include_daily_result
+        else ""
+    )
     adset_id = str(row.get("adset_id", "")).strip()
     adset = adset_map.get(adset_id, {})
     attribution = row.get("attribution_setting") or format_attribution_spec(

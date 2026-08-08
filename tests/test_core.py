@@ -16,7 +16,7 @@ from meta_ads_tool.constants import CSV_REPORT_COLUMNS, INPUT_HEADERS
 from meta_ads_tool.dates import preset_date_range, resolve_date_range
 from meta_ads_tool.exporters import export_csv, export_xlsx, sanitize_spreadsheet_text
 from meta_ads_tool.input_excel import read_accounts_from_excel
-from meta_ads_tool.runner import run_accounts
+from meta_ads_tool.runner import process_rinci_account, run_accounts
 from meta_ads_tool.transform import normalize_ad_name, parse_hour_bucket, time_category
 
 
@@ -228,6 +228,104 @@ class RetryTests(unittest.TestCase):
         )
 
 
+class DailyResultsTests(unittest.TestCase):
+    def test_daily_result_request_has_no_hourly_breakdown(self):
+        session = FakeSession([
+            FakeResponse(200, {"data": [{
+                "ad_id": "52510676405480",
+                "date_start": "2026-07-01",
+                "results": [{
+                    "indicator": (
+                        "actions:onsite_conversion."
+                        "messaging_conversation_started_7d"
+                    ),
+                    "values": [{"value": "9"}],
+                }],
+            }]}),
+        ])
+        client = MetaAdsClient(
+            api_version="v25.0",
+            access_token="token",
+            max_retries=0,
+            session=session,
+        )
+        rows, fields = client.fetch_daily_result_insights(
+            account_id="123",
+            since="2026-07-01",
+            until="2026-07-01",
+        )
+        self.assertEqual(rows[0]["ad_id"], "52510676405480")
+        self.assertIn("results", fields)
+        params = session.requests[0][1]["params"]
+        self.assertEqual(params["time_increment"], "1")
+        self.assertNotIn("breakdowns", params)
+
+    def test_daily_result_written_once_across_hourly_rows(self):
+        class Client:
+            def fetch_adsets(self, account_id):
+                return {}
+
+            def fetch_all_insights(self, account_id, mode, since, until):
+                return ([
+                    {
+                        "ad_id": "52510676405480",
+                        "ad_name": "Iklan",
+                        "date_start": "2026-07-01",
+                        "hourly_stats_aggregated_by_advertiser_time_zone": (
+                            "10:00:00 - 10:59:59"
+                        ),
+                        "impressions": "344",
+                        "inline_link_clicks": "5",
+                        "inline_link_click_ctr": "1.45",
+                        "spend": "4932",
+                    },
+                    {
+                        "ad_id": "52510676405480",
+                        "ad_name": "Iklan",
+                        "date_start": "2026-07-01",
+                        "hourly_stats_aggregated_by_advertiser_time_zone": (
+                            "03:00:00 - 03:59:59"
+                        ),
+                        "impressions": "13",
+                        "inline_link_clicks": "1",
+                        "inline_link_click_ctr": "7.69",
+                        "spend": "96",
+                    },
+                ], [])
+
+            def fetch_daily_result_insights(self, account_id, since, until):
+                return ([{
+                    "ad_id": "52510676405480",
+                    "date_start": "2026-07-01",
+                    "spend": "9000",
+                    "optimization_goal": "CONVERSATIONS",
+                    "results": [{
+                        "indicator": (
+                            "actions:onsite_conversion."
+                            "messaging_conversation_started_7d"
+                        ),
+                        "values": [{"value": "9"}],
+                    }],
+                }], [])
+
+        rows = process_rinci_account(
+            client=Client(),
+            account_id="123",
+            cabang="CAB",
+            bisnis="GADAI",
+            account_info={"name": "Akun", "currency": "IDR"},
+            since="2026-07-01",
+            until="2026-07-01",
+            status_filter="semua",
+        )
+        self.assertEqual([row["Jam mulai"] for row in rows], [3, 10])
+        self.assertEqual(rows[0]["Hasil"], "9")
+        self.assertEqual(rows[0]["Biaya per hasil"], "1000.0")
+        self.assertEqual(rows[1]["Hasil"], "")
+        self.assertEqual(rows[1]["Biaya per hasil"], "")
+        self.assertEqual(sum(float(row["Hasil"] or 0) for row in rows), 9.0)
+
+
 class FakeMetaClient:
     created_tokens = []
 
@@ -268,6 +366,21 @@ class FakeMetaClient:
             "inline_link_clicks": "5",
             "inline_link_click_ctr": "5",
             "spend": "10000",
+        }], [])
+
+    def fetch_daily_result_insights(self, account_id, since, until):
+        return ([{
+            "ad_id": "3001",
+            "date_start": since,
+            "spend": "10000",
+            "optimization_goal": "CONVERSATIONS",
+            "results": [{
+                "indicator": (
+                    "actions:onsite_conversion."
+                    "messaging_conversation_started_7d"
+                ),
+                "values": [{"value": "9", "attribution_windows": ["default"]}],
+            }],
         }], [])
 
 
@@ -319,6 +432,7 @@ class RunnerTests(unittest.TestCase):
                 self.assertEqual(row["ID iklan"], "3001")
                 self.assertEqual(row["Jam mulai"], 18)
                 self.assertEqual(row["Kategori waktu"], "Malam")
+                self.assertEqual(row["Hasil"], "9")
                 self.assertEqual(
                     row["Nama iklan"],
                     "Lagi butuh dana cepat tapi nggak mau",

@@ -6,12 +6,13 @@ from typing import Any, Callable, Dict, List
 from .api import MetaAdsClient, MetaApiError
 from .checkpoint import CheckpointStore
 from .logging_utils import error, info
-from .metrics import build_insight_map
+from .metrics import build_daily_result_map, build_insight_map
 from .transform import (
     choose_image_url,
     extract_creative,
     flatten_rekap_row,
     flatten_rinci_row,
+    parse_hour_bucket,
 )
 
 
@@ -83,8 +84,27 @@ def process_rinci_account(
     until: str,
     status_filter: str,
 ) -> List[Dict[str, Any]]:
+    """Proses mode rinci dengan dua sumber Insights.
+
+    - Hourly: impressions, link clicks, CTR, CPC, spend.
+    - Daily tanpa breakdown: results dan cost_per_result.
+
+    Results harian hanya ditulis pada baris jam paling awal untuk setiap
+    kombinasi ad_id + tanggal. Dengan demikian SUM(Hasil) per hari tetap sama
+    dengan Results harian Meta dan tidak terduplikasi 24 kali.
+    """
     adsets = client.fetch_adsets(account_id)
-    insight_rows, _ = client.fetch_all_insights(account_id, "rinci", since, until)
+    hourly_rows, _ = client.fetch_all_insights(
+        account_id,
+        "rinci",
+        since,
+        until,
+    )
+    daily_result_rows, _ = client.fetch_daily_result_insights(
+        account_id,
+        since,
+        until,
+    )
 
     if status_filter != "semua":
         selected_ads = client.fetch_ads(account_id, status_filter)
@@ -93,24 +113,57 @@ def process_rinci_account(
             for ad in selected_ads
             if ad.get("id") not in (None, "")
         }
-        insight_rows = [
-            row for row in insight_rows
+        hourly_rows = [
+            row for row in hourly_rows
+            if str(row.get("ad_id", "")).strip() in allowed_ad_ids
+        ]
+        daily_result_rows = [
+            row for row in daily_result_rows
             if str(row.get("ad_id", "")).strip() in allowed_ad_ids
         ]
 
-    return [
-        flatten_rinci_row(
-            account_info=account_info,
-            source_account_id=account_id,
-            cabang=cabang,
-            bisnis=bisnis,
-            row=row,
-            adset_map=adsets,
-            since=since,
-            until=until,
+    daily_result_map = build_daily_result_map(daily_result_rows)
+
+    # Urutkan agar nilai result harian ditempatkan secara deterministik pada
+    # jam paling awal yang tersedia untuk ad+tanggal.
+    def sort_key(row: Dict[str, Any]) -> tuple:
+        _, start_hour = parse_hour_bucket(
+            row.get("hourly_stats_aggregated_by_advertiser_time_zone", "")
         )
-        for row in insight_rows
-    ]
+        return (
+            str(row.get("date_start", "")),
+            str(row.get("ad_id", "")),
+            99 if start_hour is None else start_hour,
+        )
+
+    hourly_rows = sorted(hourly_rows, key=sort_key)
+    result_written = set()
+    output: List[Dict[str, Any]] = []
+
+    for row in hourly_rows:
+        ad_id = str(row.get("ad_id", "")).strip()
+        date_start = str(row.get("date_start", "")).strip()
+        result_key = (ad_id, date_start)
+        daily_result = daily_result_map.get(result_key, {})
+        include_daily_result = result_key not in result_written
+        result_written.add(result_key)
+
+        output.append(
+            flatten_rinci_row(
+                account_info=account_info,
+                source_account_id=account_id,
+                cabang=cabang,
+                bisnis=bisnis,
+                row=row,
+                adset_map=adsets,
+                since=since,
+                until=until,
+                daily_result=daily_result,
+                include_daily_result=include_daily_result,
+            )
+        )
+
+    return output
 
 
 def run_accounts(

@@ -411,6 +411,12 @@ class MetaAdsClient:
 
     @staticmethod
     def insight_field_attempts(mode: str) -> List[List[str]]:
+        """Field Insights untuk rekap dan statistik hourly.
+
+        Mode rinci sengaja TIDAK meminta results/actions. Results harian diambil
+        melalui request terpisah tanpa breakdown agar tidak tercampur dengan
+        metric hourly.
+        """
         common_fields = [
             "account_currency",
             "campaign_id",
@@ -428,37 +434,72 @@ class MetaAdsClient:
             "spend",
             "objective",
             "optimization_goal",
-            "actions",
-            "cost_per_action_type",
         ]
 
         if mode == "rekap":
-            common_fields.extend(["reach", "frequency"])
+            common_fields.extend([
+                "reach",
+                "frequency",
+                "actions",
+                "cost_per_action_type",
+            ])
+            optional_groups = [
+                [
+                    "attribution_setting",
+                    "adset_start",
+                    "adset_end",
+                    "results",
+                    "cost_per_result",
+                    "objective_results",
+                    "cost_per_objective_result",
+                ],
+                [
+                    "attribution_setting",
+                    "adset_start",
+                    "adset_end",
+                    "results",
+                    "cost_per_result",
+                ],
+                ["attribution_setting", "adset_start", "adset_end"],
+                ["attribution_setting"],
+                [],
+            ]
+        else:
+            # Hourly hanya untuk delivery/spend. Jangan gunakan result hourly
+            # sebagai sumber kolom Hasil.
+            optional_groups = [
+                ["attribution_setting", "adset_start", "adset_end"],
+                ["attribution_setting"],
+                [],
+            ]
 
+        return [common_fields + group for group in optional_groups]
+
+    @staticmethod
+    def daily_result_field_attempts() -> List[List[str]]:
+        """Field untuk Results harian tanpa breakdown jam.
+
+        ``results`` wajib tetap ada pada setiap fallback. Jika Meta tidak dapat
+        mengembalikan field itu, program tidak diam-diam menggantinya dengan
+        ``actions``.
+        """
+        common_fields = [
+            "campaign_id",
+            "campaign_name",
+            "adset_id",
+            "adset_name",
+            "ad_id",
+            "ad_name",
+            "date_start",
+            "date_stop",
+            "spend",
+            "objective",
+            "optimization_goal",
+        ]
         optional_groups = [
-            [
-                "attribution_setting",
-                "adset_start",
-                "adset_end",
-                "results",
-                "cost_per_result",
-                "objective_results",
-                "cost_per_objective_result",
-            ],
-            [
-                "attribution_setting",
-                "adset_start",
-                "adset_end",
-                "results",
-                "cost_per_result",
-            ],
-            [
-                "attribution_setting",
-                "adset_start",
-                "adset_end",
-            ],
-            ["attribution_setting"],
-            [],
+            ["attribution_setting", "results", "cost_per_result"],
+            ["results", "cost_per_result"],
+            ["results"],
         ]
         return [common_fields + group for group in optional_groups]
 
@@ -503,6 +544,95 @@ class MetaAdsClient:
                 "hourly_stats_aggregated_by_advertiser_time_zone"
             )
         return params
+
+    @staticmethod
+    def _daily_result_params(
+        since: str,
+        until: str,
+        fields: List[str],
+    ) -> Dict[str, Any]:
+        """Params Results harian: time_increment=1, TANPA hourly breakdown."""
+        return {
+            "level": "ad",
+            "time_range": json.dumps({"since": since, "until": until}),
+            "time_increment": "1",
+            "use_unified_attribution_setting": "true",
+            "fields": ",".join(fields),
+            "limit": "500",
+        }
+
+    def fetch_daily_result_insights(
+        self,
+        account_id: str,
+        since: str,
+        until: str,
+    ) -> Tuple[List[Dict[str, Any]], List[str]]:
+        """Ambil ``results`` harian tanpa breakdown jam.
+
+        Rentang tetap dipecah per hari agar request ringan dan agar setiap row
+        dapat dipetakan tepat dengan key (ad_id, date_start).
+        """
+        url = "{}/{}/insights".format(self.base_url, self.account_node(account_id))
+        attempts = self.daily_result_field_attempts()
+        date_ranges = self._split_date_range(since, until, chunk_days=1)
+        last_error: Optional[MetaApiError] = None
+
+        if len(date_ranges) > 1:
+            info(
+                "Results harian dipecah menjadi {} request tanpa breakdown jam.".format(
+                    len(date_ranges)
+                )
+            )
+
+        for attempt_number, fields in enumerate(attempts, start=1):
+            rows: List[Dict[str, Any]] = []
+            try:
+                for chunk_number, (chunk_since, chunk_until) in enumerate(
+                    date_ranges,
+                    start=1,
+                ):
+                    prefix = "Results harian"
+                    if len(date_ranges) > 1:
+                        prefix = "Results harian {}/{} [{}]".format(
+                            chunk_number,
+                            len(date_ranges),
+                            chunk_since,
+                        )
+                    rows.extend(
+                        self.fetch_paginated_data(
+                            url,
+                            self._daily_result_params(
+                                since=chunk_since,
+                                until=chunk_until,
+                                fields=fields,
+                            ),
+                            prefix,
+                        )
+                    )
+
+                if attempt_number > 1:
+                    info(
+                        "Results harian berhasil dengan fallback field tingkat {}.".format(
+                            attempt_number
+                        )
+                    )
+                return rows, fields
+            except MetaApiError as exc:
+                last_error = exc
+                if (
+                    (exc.code == 100 or exc.data_too_large)
+                    and attempt_number < len(attempts)
+                ):
+                    warning(
+                        "Field Results harian tingkat {} ditolak; mencoba field "
+                        "yang lebih ringan. Detail: {}".format(attempt_number, exc)
+                    )
+                    continue
+                raise
+
+        if last_error is not None:
+            raise last_error
+        raise MetaApiError("Gagal mengambil Results harian tanpa detail error.")
 
     def fetch_all_insights(
         self,

@@ -187,3 +187,26 @@ File yang menangani perubahan format input:
 ```bash
 python3 -m unittest discover -s tests -v
 ```
+
+## Perubahan Hasil mode rinci sejak 5.3.2
+
+Mode rinci memakai dua query Insights terpisah:
+
+- **hourly** untuk `Impresi`, `Klik tautan`, `CTR klik tautan`, `Biaya per klik tautan`, dan `Jumlah yang dibelanjakan`;
+- **daily tanpa breakdown jam** untuk `Hasil` dan `Biaya per hasil`.
+
+Hal ini dilakukan karena `SUM(results per jam)` tidak selalu sama dengan `results` harian Meta Ads Manager.
+
+Agar `Hasil` harian tidak terduplikasi 24 kali, nilai `Hasil` dan `Biaya per hasil` hanya ditulis pada baris jam paling awal untuk setiap `ID iklan + Tanggal`. Baris jam lainnya kosong pada dua kolom tersebut.
+
+Contoh:
+
+```text
+ID iklan       Tanggal       Jam     Hasil
+52510676405480 2026-07-01    00:00   9
+52510676405480 2026-07-01    01:00   
+...
+52510676405480 2026-07-01    23:00   
+```
+
+Dengan model ini, agregasi `SUM(Hasil)` per `ID iklan + Tanggal` tetap menghasilkan `9`.
