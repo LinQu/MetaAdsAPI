@@ -87,7 +87,7 @@ def process_rinci_account(
     """Proses mode rinci dengan dua sumber Insights.
 
     - Hourly: impressions, link clicks, CTR, CPC, spend.
-    - Daily tanpa breakdown: frequency, results, dan cost_per_result.
+    - Daily tanpa breakdown: results dan cost_per_result.
 
     Results harian hanya ditulis pada baris jam paling awal untuk setiap
     kombinasi ad_id + tanggal. Dengan demikian SUM(Hasil) per hari tetap sama

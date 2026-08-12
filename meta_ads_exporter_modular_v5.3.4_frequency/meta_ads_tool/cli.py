@@ -17,18 +17,11 @@ from .api import MetaAdsClient
 from .checkpoint import (
     CheckpointMismatchError,
     CheckpointStore,
-    accounts_source_fingerprint,
     build_job_signature,
 )
-from .constants import (
-    INPUT_SOURCE_CHOICES,
-    OUTPUT_FORMAT_CHOICES,
-    PRESET_CHOICES,
-    STATUS_CHOICES,
-)
+from .constants import OUTPUT_FORMAT_CHOICES, PRESET_CHOICES, STATUS_CHOICES
 from .dates import normalize_preset, resolve_date_range
 from .exporters import ExportResult, export_report
-from .input_api import DEFAULT_SOURCE_API_URL, read_accounts_from_api
 from .input_excel import read_accounts_from_excel, validate_input_file
 from .logging_utils import error, info, warning
 from .runner import run_accounts
@@ -40,16 +33,6 @@ DEFAULT_STATUS = os.getenv("META_AD_STATUS", "aktif").strip().lower() or "aktif"
 ENV_SINCE = os.getenv("META_REPORT_SINCE", "").strip()
 ENV_UNTIL = os.getenv("META_REPORT_UNTIL", "").strip()
 ENV_PRESET = os.getenv("META_REPORT_PRESET", "").strip()
-DEFAULT_INPUT_SOURCE = os.getenv("META_ACCOUNT_SOURCE", "excel").strip().lower() or "excel"
-DEFAULT_SOURCE_API_URL = os.getenv(
-    "META_SOURCE_API_URL", DEFAULT_SOURCE_API_URL
-).strip() or DEFAULT_SOURCE_API_URL
-DEFAULT_SOURCE_API_NOHP = os.getenv("META_SOURCE_API_NOHP", "").strip()
-DEFAULT_SOURCE_API_LAT = os.getenv("META_SOURCE_API_LAT", "0.00").strip() or "0.00"
-DEFAULT_SOURCE_API_LON = os.getenv("META_SOURCE_API_LON", "0.00").strip() or "0.00"
-DEFAULT_SOURCE_API_JAM = os.getenv(
-    "META_SOURCE_API_JAM_MULAI", "-10:00:00"
-).strip() or "-10:00:00"
 
 
 def normalize_status(value: str) -> str:
@@ -86,64 +69,14 @@ def _resolved_default_status() -> str:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
-            "Ambil Meta Ads dengan sumber akun dari Excel A:D atau API DATAMETA, "
-            "lalu ekspor ke XLSX/CSV. Token digunakan per akun dan tidak diekspor. "
-            "CSV memakai separator | dan tanggal DD-MM-YYYY."
+            "Ambil Meta Ads dari Excel A:D (ID ACCOUNT, TOKEN, CABANG, BISNIS) "
+            "dan ekspor ke XLSX/CSV. Token digunakan per akun dan tidak diekspor. "
+            "Mendukung preset tanggal, retry, checkpoint/resume, dan log realtime."
         )
     )
     parser.add_argument(
         "input_file",
-        nargs="?",
-        default="",
-        help=(
-            "File XLSX A:D untuk --sumber-akun excel. Tidak diperlukan jika "
-            "--sumber-akun api."
-        ),
-    )
-    parser.add_argument(
-        "--sumber-akun",
-        "--input-source",
-        dest="input_source",
-        choices=INPUT_SOURCE_CHOICES,
-        default=(DEFAULT_INPUT_SOURCE if DEFAULT_INPUT_SOURCE in INPUT_SOURCE_CHOICES else "excel"),
-        help="Sumber ID ACCOUNT/TOKEN/CABANG/BISNIS: excel atau api.",
-    )
-    parser.add_argument(
-        "--source-api-url",
-        default=DEFAULT_SOURCE_API_URL,
-        help="Endpoint POST DATAMETA untuk --sumber-akun api.",
-    )
-    parser.add_argument(
-        "--source-api-nohp",
-        default=DEFAULT_SOURCE_API_NOHP,
-        help="Nilai noHP pada body DATAMETA. Bisa disimpan di META_SOURCE_API_NOHP.",
-    )
-    parser.add_argument(
-        "--source-api-lat",
-        default=DEFAULT_SOURCE_API_LAT,
-        help="Nilai latMulai body DATAMETA. Default: %(default)s.",
-    )
-    parser.add_argument(
-        "--source-api-lon",
-        default=DEFAULT_SOURCE_API_LON,
-        help="Nilai lonMulai body DATAMETA. Default: %(default)s.",
-    )
-    parser.add_argument(
-        "--source-api-jam-mulai",
-        default=DEFAULT_SOURCE_API_JAM,
-        help="Nilai jamMulai body DATAMETA. Default: %(default)s.",
-    )
-    parser.add_argument(
-        "--source-api-timeout",
-        type=float,
-        default=60.0,
-        help="Read timeout API DATAMETA dalam detik. Default: 60.",
-    )
-    parser.add_argument(
-        "--source-api-retries",
-        type=int,
-        default=3,
-        help="Retry API DATAMETA untuk network/408/429/5xx. Default: 3.",
+        help="File XLSX dengan kolom A:D: ID ACCOUNT, TOKEN, CABANG, BISNIS.",
     )
     parser.add_argument(
         "--mode",
@@ -250,19 +183,14 @@ def build_parser() -> argparse.ArgumentParser:
 
 def make_default_output(
     input_file: str,
-    input_source: str,
     mode: str,
     status: str,
     since: str,
     until: str,
     output_format: str,
 ) -> str:
-    if input_source == "api":
-        directory = os.getcwd()
-        stem = "datameta_api"
-    else:
-        directory = os.path.dirname(os.path.abspath(input_file))
-        stem = os.path.splitext(os.path.basename(input_file))[0]
+    directory = os.path.dirname(os.path.abspath(input_file))
+    stem = os.path.splitext(os.path.basename(input_file))[0]
     filename = "{}_meta_ads_{}_{}_{}_{}.{}".format(
         stem,
         mode,
@@ -278,7 +206,6 @@ def resolve_output(
     output_value: str,
     format_value: Optional[str],
     input_file: str,
-    input_source: str,
     mode: str,
     status: str,
     since: str,
@@ -309,7 +236,6 @@ def resolve_output(
     else:
         output_file = make_default_output(
             input_file=input_file,
-            input_source=input_source,
             mode=mode,
             status=status,
             since=since,
@@ -324,28 +250,7 @@ def validate_runtime(
     output_file: str,
     output_format: str,
 ) -> None:
-    if args.input_source == "excel":
-        if not args.input_file:
-            raise RuntimeError(
-                "--sumber-akun excel membutuhkan file XLSX sebagai argumen terakhir."
-            )
-        validate_input_file(args.input_file)
-        if os.path.abspath(args.input_file) == os.path.abspath(output_file):
-            raise RuntimeError("File output tidak boleh sama dengan file input.")
-    else:
-        if args.input_file:
-            warning(
-                "Argumen file input diabaikan karena --sumber-akun api digunakan."
-            )
-        if not str(args.source_api_nohp or "").strip():
-            raise RuntimeError(
-                "--sumber-akun api membutuhkan --source-api-nohp atau META_SOURCE_API_NOHP."
-            )
-        if args.source_api_timeout <= 0:
-            raise RuntimeError("--source-api-timeout harus lebih besar dari 0.")
-        if args.source_api_retries < 0:
-            raise RuntimeError("--source-api-retries tidak boleh negatif.")
-
+    validate_input_file(args.input_file)
     if not args.api_version:
         raise RuntimeError("--api-version tidak boleh kosong.")
     if args.image_width <= 0 or args.image_height <= 0:
@@ -360,6 +265,8 @@ def validate_runtime(
         )
     if output_format not in OUTPUT_FORMAT_CHOICES:
         raise RuntimeError("Format output tidak valid.")
+    if os.path.abspath(args.input_file) == os.path.abspath(output_file):
+        raise RuntimeError("File output tidak boleh sama dengan file input.")
 
 
 def _print_summary(
@@ -378,7 +285,6 @@ def _print_summary(
     info("RINGKASAN")
     info("Mode              : {}".format(args.mode))
     info("Status            : {}".format(args.status))
-    info("Sumber akun       : {}".format(args.input_source))
     info("Periode           : {} s.d. {} ({})".format(since, until, date_source))
     info("Total akun sumber : {}".format(total_accounts))
     info("Akun dari resume  : {}".format(skipped_accounts))
@@ -414,7 +320,6 @@ def main(argv: Optional[List[str]] = None) -> int:
             output_value=args.output,
             format_value=args.output_format,
             input_file=args.input_file,
-            input_source=args.input_source,
             mode=args.mode,
             status=args.status,
             since=since,
@@ -426,25 +331,9 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     try:
         validate_runtime(args, output_file, output_format)
-        if args.input_source == "api":
-            accounts = read_accounts_from_api(
-                api_url=args.source_api_url,
-                no_hp=args.source_api_nohp,
-                since=since,
-                until=until,
-                lat_mulai=args.source_api_lat,
-                lon_mulai=args.source_api_lon,
-                jam_mulai=args.source_api_jam_mulai,
-                timeout_seconds=args.source_api_timeout,
-                max_retries=args.source_api_retries,
-            )
-            source_reference = args.source_api_url
-        else:
-            accounts = read_accounts_from_excel(args.input_file, args.sheet)
-            source_reference = os.path.abspath(args.input_file)
-        source_fingerprint = accounts_source_fingerprint(accounts)
+        accounts = read_accounts_from_excel(args.input_file, args.sheet)
     except (RuntimeError, ValueError) as exc:
-        error("KONFIGURASI/SUMBER AKUN: {}".format(exc))
+        error("KONFIGURASI/EXCEL: {}".format(exc))
         return 1
 
     if output_format == "csv" and args.mode == "rekap" and not args.tanpa_gambar:
@@ -464,9 +353,6 @@ def main(argv: Optional[List[str]] = None) -> int:
     )
     signature = build_job_signature(
         input_file=args.input_file,
-        input_source=args.input_source,
-        source_fingerprint=source_fingerprint,
-        source_reference=source_reference,
         mode=args.mode,
         status=args.status,
         since=since,
@@ -514,8 +400,6 @@ def main(argv: Optional[List[str]] = None) -> int:
             image_width=args.image_width,
             image_height=args.image_height,
             embed_images=embed_images,
-            input_source=args.input_source,
-            source_reference=source_reference,
         )
 
         if args.keep_checkpoint:

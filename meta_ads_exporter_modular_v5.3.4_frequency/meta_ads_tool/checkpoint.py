@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set
 
 
-SCHEMA_VERSION = "5"
+SCHEMA_VERSION = "3"
 
 
 def file_sha256(path: str, chunk_size: int = 1024 * 1024) -> str:
@@ -22,33 +22,6 @@ def file_sha256(path: str, chunk_size: int = 1024 * 1024) -> str:
     return digest.hexdigest()
 
 
-def accounts_source_fingerprint(accounts: List[Dict[str, str]]) -> str:
-    """Return a deterministic source fingerprint without storing raw tokens."""
-    normalized = []
-    for item in sorted(
-        accounts,
-        key=lambda value: (
-            str(value.get("account_id", "")),
-            str(value.get("cabang", "")),
-            str(value.get("bisnis", "")),
-        ),
-    ):
-        token = str(item.get("access_token", ""))
-        normalized.append({
-            "account_id": str(item.get("account_id", "")),
-            "cabang": str(item.get("cabang", "")),
-            "bisnis": str(item.get("bisnis", "")),
-            "token_sha256": hashlib.sha256(token.encode("utf-8")).hexdigest(),
-        })
-    encoded = json.dumps(
-        normalized,
-        ensure_ascii=False,
-        sort_keys=True,
-        separators=(",", ":"),
-    ).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
-
-
 def build_job_signature(
     input_file: str,
     mode: str,
@@ -57,15 +30,15 @@ def build_job_signature(
     until: str,
     api_version: str,
     output_format: str,
-    input_source: str = "excel",
-    source_fingerprint: str = "",
-    source_reference: str = "",
 ) -> Dict[str, Any]:
-    signature: Dict[str, Any] = {
+    absolute_input = os.path.abspath(input_file)
+    stat = os.stat(absolute_input)
+    return {
         "schema_version": SCHEMA_VERSION,
-        "input_source": input_source,
-        "source_fingerprint": source_fingerprint,
-        "source_reference": source_reference,
+        "input_file": absolute_input,
+        "input_size": stat.st_size,
+        "input_mtime_ns": stat.st_mtime_ns,
+        "input_sha256": file_sha256(absolute_input),
         "mode": mode,
         "status": status,
         "since": since,
@@ -73,20 +46,6 @@ def build_job_signature(
         "api_version": api_version,
         "output_format": output_format,
     }
-
-    if input_source == "excel":
-        absolute_input = os.path.abspath(input_file)
-        stat = os.stat(absolute_input)
-        signature.update({
-            "input_file": absolute_input,
-            "input_size": stat.st_size,
-            "input_mtime_ns": stat.st_mtime_ns,
-            "input_sha256": file_sha256(absolute_input),
-        })
-    else:
-        signature["input_file"] = ""
-
-    return signature
 
 
 class CheckpointMismatchError(RuntimeError):

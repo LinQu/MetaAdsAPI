@@ -568,34 +568,10 @@ def choose_daily_result_detail(
         str(cost_value),
     )
 
-def daily_frequency_value(row: Dict[str, Any]) -> str:
-    """Ambil frequency harian tanpa breakdown.
-
-    Meta dapat tidak mengembalikan ``frequency`` pada query dengan breakdown
-    hourly. Karena itu mode rinci mengambil frequency dari query harian tanpa
-    breakdown. Jika field ``frequency`` tidak tersedia tetapi ``impressions``
-    dan ``reach`` tersedia, hitung fallback ``impressions / reach``.
-    """
-    raw = row.get("frequency")
-    if raw not in (None, ""):
-        return str(raw)
-
-    impressions = safe_float(row.get("impressions"))
-    reach = safe_float(row.get("reach"))
-    if impressions > 0 and reach > 0:
-        return str(impressions / reach)
-
-    return ""
-
-
 def build_daily_result_map(
     rows: Iterable[Dict[str, Any]],
 ) -> Dict[Tuple[str, str], Dict[str, str]]:
-    """Buat map metric harian dengan key ``(ad_id, date_start)``.
-
-    Selain Results harian, map ini menyimpan ``frequency`` harian agar mode
-    rinci tidak bergantung pada field frequency dari breakdown per jam.
-    """
+    """Buat map Results harian dengan key ``(ad_id, date_start)``."""
     output: Dict[Tuple[str, str], Dict[str, str]] = {}
 
     for row in rows:
@@ -609,7 +585,6 @@ def build_daily_result_map(
             "metric_type": metric_type,
             "result_value": result_value,
             "cost_value": cost_value,
-            "frequency": daily_frequency_value(row),
         }
 
     return output

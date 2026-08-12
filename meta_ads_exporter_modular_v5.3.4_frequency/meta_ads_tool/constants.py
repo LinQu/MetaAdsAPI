@@ -21,8 +21,6 @@ PRESET_CHOICES = (
     "bulan-lalu",
 )
 OUTPUT_FORMAT_CHOICES = ("xlsx", "csv")
-INPUT_SOURCE_CHOICES = ("excel", "api")
-CSV_DELIMITER = "|"
 
 REKAP_COLUMNS = [
     "ID ACCOUNT",

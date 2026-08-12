@@ -229,10 +229,7 @@ def flatten_rinci_row(
         "Mulai": row.get("adset_start") or adset.get("start_time", ""),
         "Berakhir": row.get("adset_end") or adset.get("end_time", ""),
         "Impresi": row.get("impressions", "0"),
-        # Frequency mode rinci berasal dari query harian tanpa hourly breakdown.
-        # Nilainya diulang pada setiap row jam untuk ad+tanggal yang sama dan
-        # tidak boleh dijumlahkan antar jam.
-        "Frekuensi": str(daily_result.get("frequency", "")),
+        "Frekuensi": row.get("frequency", "0"),
         "Klik tautan": row.get("inline_link_clicks", "0"),
         "CTR klik tautan": link_ctr_percent(row),
         "Biaya per klik tautan": cost_per_link_click(row),

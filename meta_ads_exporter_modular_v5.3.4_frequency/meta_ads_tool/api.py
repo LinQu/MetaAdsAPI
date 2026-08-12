@@ -428,6 +428,7 @@ class MetaAdsClient:
             "date_start",
             "date_stop",
             "impressions",
+            "frequency",
             "inline_link_clicks",
             "inline_link_click_ctr",
             "cost_per_inline_link_click",
@@ -439,7 +440,6 @@ class MetaAdsClient:
         if mode == "rekap":
             common_fields.extend([
                 "reach",
-                "frequency",
                 "actions",
                 "cost_per_action_type",
             ])
@@ -492,9 +492,6 @@ class MetaAdsClient:
             "ad_name",
             "date_start",
             "date_stop",
-            "impressions",
-            "reach",
-            "frequency",
             "spend",
             "objective",
             "optimization_goal",

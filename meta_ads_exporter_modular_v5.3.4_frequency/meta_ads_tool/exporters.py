@@ -20,7 +20,6 @@ except ImportError:  # Image embedding is optional
     PILImage = None  # type: ignore
 
 from .constants import (
-    CSV_DELIMITER,
     CSV_REPORT_COLUMNS,
     ERROR_COLUMNS,
     REKAP_COLUMNS,
@@ -141,32 +140,7 @@ def excel_value(column_name: str, value: Any) -> Any:
     return sanitize_spreadsheet_text(value)
 
 
-def to_csv_date(value: Any) -> str:
-    """Format report dates as DD-MM-YYYY for delimited CSV output."""
-    if value is None or value == "":
-        return ""
-    if isinstance(value, datetime):
-        return value.strftime("%d-%m-%Y")
-    if isinstance(value, date):
-        return value.strftime("%d-%m-%Y")
-
-    text = str(value).strip()
-    for fmt in (
-        "%Y-%m-%d",
-        "%d-%m-%Y",
-        "%Y-%m-%dT%H:%M:%S%z",
-        "%Y-%m-%dT%H:%M:%S",
-    ):
-        try:
-            return datetime.strptime(text, fmt).strftime("%d-%m-%Y")
-        except (TypeError, ValueError):
-            continue
-    return sanitize_spreadsheet_text(value)
-
-
 def csv_value(column_name: str, value: Any) -> Any:
-    if column_name in _DATE_COLUMNS:
-        return to_csv_date(value)
     if column_name in _NUMERIC_COLUMNS or column_name == "CTR klik tautan":
         return to_number(value)
     if isinstance(value, (date, datetime)):
@@ -399,37 +373,19 @@ def _information_rows(
     date_source: str,
     output_format: str,
     images_enabled: bool,
-    input_source: str = "excel",
-    source_reference: str = "",
 ) -> List[List[Any]]:
-    display_since = to_csv_date(since) if output_format == "csv" else since
-    display_until = to_csv_date(until) if output_format == "csv" else until
-    if input_source == "api":
-        account_source = source_reference or "API DATAMETA"
-        token_source = (
-            "Field Detail.token dari API DATAMETA; token tidak ditulis ke output, "
-            "log, atau checkpoint."
-        )
-    else:
-        account_source = os.path.abspath(input_file) if input_file else ""
-        token_source = (
-            "Kolom TOKEN pada file input; token tidak ditulis ke output, "
-            "log, atau checkpoint."
-        )
-
     return [
         ["Parameter", "Nilai"],
         ["Mode", mode],
         ["Status", status_filter],
         ["API Version", api_version],
-        ["Awal pelaporan", display_since],
-        ["Akhir pelaporan", display_until],
+        ["Awal pelaporan", since],
+        ["Akhir pelaporan", until],
         ["Sumber tanggal", date_source],
         ["Format output", output_format],
         ["Gambar tertanam", "ya" if images_enabled else "tidak"],
-        ["Sumber akun", input_source],
-        ["Referensi sumber akun", account_source],
-        ["Sumber token", token_source],
+        ["File sumber akun", os.path.abspath(input_file)],
+        ["Sumber token", "Kolom TOKEN pada file input; token tidak ditulis ke output, log, atau checkpoint."],
         ["Waktu pembuatan", datetime.now().astimezone().isoformat()],
         [
             "Definisi status",
@@ -460,8 +416,6 @@ def export_xlsx(
     image_width: int,
     image_height: int,
     embed_images: bool,
-    input_source: str = "excel",
-    source_reference: str = "",
 ) -> ExportResult:
     if embed_images and PILImage is None:
         raise RuntimeError("Pillow belum terpasang; gunakan --tanpa-gambar atau install Pillow.")
@@ -517,8 +471,6 @@ def export_xlsx(
             date_source=date_source,
             output_format="xlsx",
             images_enabled=mode == "rekap" and embed_images,
-            input_source=input_source,
-            source_reference=source_reference,
         )
         for row in info_rows:
             info_sheet.append([sanitize_spreadsheet_text(value) for value in row])
@@ -549,7 +501,7 @@ def _write_csv(path: str, columns: Sequence[str], rows: Sequence[Dict[str, Any]]
     if parent:
         os.makedirs(parent, exist_ok=True)
     with open(path, "w", encoding="utf-8-sig", newline="") as handle:
-        writer = csv.writer(handle, delimiter=CSV_DELIMITER, lineterminator="\n")
+        writer = csv.writer(handle)
         writer.writerow(columns)
         for row in rows:
             writer.writerow([
@@ -570,8 +522,6 @@ def export_csv(
     status_filter: str,
     date_source: str,
     process_date: str = "",
-    input_source: str = "excel",
-    source_reference: str = "",
 ) -> ExportResult:
     # CSV sengaja memakai skema tetap/ringkas. Output XLSX tetap memakai
     # kolom lengkap sesuai mode. Field yang tidak tersedia pada suatu mode
@@ -600,11 +550,9 @@ def export_csv(
         date_source=date_source,
         output_format="csv",
         images_enabled=False,
-        input_source=input_source,
-        source_reference=source_reference,
     )
     with open(info_file, "w", encoding="utf-8-sig", newline="") as handle:
-        writer = csv.writer(handle, delimiter=CSV_DELIMITER, lineterminator="\n")
+        writer = csv.writer(handle)
         for row in info_rows:
             writer.writerow([sanitize_spreadsheet_text(value) for value in row])
 
@@ -630,8 +578,6 @@ def export_report(
     image_width: int,
     image_height: int,
     embed_images: bool,
-    input_source: str = "excel",
-    source_reference: str = "",
 ) -> ExportResult:
     if output_format == "xlsx":
         return export_xlsx(
@@ -648,8 +594,6 @@ def export_report(
             image_width=image_width,
             image_height=image_height,
             embed_images=embed_images,
-            input_source=input_source,
-            source_reference=source_reference,
         )
     if output_format == "csv":
         return export_csv(
@@ -663,7 +607,5 @@ def export_report(
             until=until,
             status_filter=status_filter,
             date_source=date_source,
-            input_source=input_source,
-            source_reference=source_reference,
         )
     raise ValueError("Format output tidak didukung: {}".format(output_format))

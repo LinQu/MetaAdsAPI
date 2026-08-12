@@ -12,16 +12,11 @@ from openpyxl import Workbook, load_workbook
 from meta_ads_tool.api import MetaAdsClient, MetaApiError
 from meta_ads_tool.checkpoint import CheckpointMismatchError, CheckpointStore
 from meta_ads_tool.cli import main as cli_main
-from meta_ads_tool.constants import CSV_DELIMITER, CSV_REPORT_COLUMNS, INPUT_HEADERS
+from meta_ads_tool.constants import CSV_REPORT_COLUMNS, INPUT_HEADERS
 from meta_ads_tool.dates import preset_date_range, resolve_date_range
 from meta_ads_tool.exporters import export_csv, export_xlsx, sanitize_spreadsheet_text
-from meta_ads_tool.input_api import (
-    build_datameta_body,
-    parse_accounts_from_datameta_payload,
-    read_accounts_from_api,
-)
 from meta_ads_tool.input_excel import read_accounts_from_excel
-from meta_ads_tool.metrics import choose_daily_result_detail, daily_frequency_value
+from meta_ads_tool.metrics import choose_daily_result_detail
 from meta_ads_tool.runner import process_rinci_account, run_accounts
 from meta_ads_tool.transform import normalize_ad_name, parse_hour_bucket, time_category
 
@@ -48,12 +43,6 @@ class FakeSession:
         self.headers = {}
 
     def get(self, *args, **kwargs):
-        self.requests.append((args, kwargs))
-        response = self.responses[self.calls]
-        self.calls += 1
-        return response
-
-    def post(self, *args, **kwargs):
         self.requests.append((args, kwargs))
         response = self.responses[self.calls]
         self.calls += 1
@@ -145,73 +134,6 @@ class InputExcelTests(unittest.TestCase):
 
             with self.assertRaises(RuntimeError):
                 read_accounts_from_excel(path)
-
-
-class InputApiTests(unittest.TestCase):
-    def test_build_datameta_body_uses_report_dates(self):
-        body = build_datameta_body(
-            no_hp="081234",
-            since="2026-02-01",
-            until="2026-02-28",
-        )
-        item = body["api_jsoncmonss"][0]
-        self.assertEqual(item["Request"], "DATAMETA")
-        self.assertEqual(item["tanggalAwal"], "2026-02-01")
-        self.assertEqual(item["tanggalAkhir"], "2026-02-28")
-        self.assertEqual(item["latMulai"], "0.00")
-        self.assertEqual(item["lonMulai"], "0.00")
-        self.assertEqual(item["jamMulai"], "-10:00:00")
-
-    def test_parse_all_accounts_supports_id_acoount_spelling(self):
-        accounts = parse_accounts_from_datameta_payload({
-            "status": "ok",
-            "Detail": [
-                {
-                    "idAcoount": "1001712982604688",
-                    "token": "secret-a",
-                    "cabang": "34THJO81",
-                    "bisnis": "MGA",
-                },
-                {
-                    "idAcoount": "1004504647673778",
-                    "token": "secret-b",
-                    "cabang": "33KDGP81",
-                    "bisnis": "MGA",
-                },
-            ],
-        })
-        self.assertEqual(len(accounts), 2)
-        self.assertEqual(accounts[0]["account_id"], "1001712982604688")
-        self.assertEqual(accounts[1]["cabang"], "33KDGP81")
-        self.assertEqual(accounts[0]["access_token"], "secret-a")
-
-    def test_read_accounts_posts_json_without_logging_response_body(self):
-        session = FakeSession([
-            FakeResponse(200, {
-                "status": "ok",
-                "Detail": [{
-                    "idAcoount": "123",
-                    "token": "secret-token",
-                    "cabang": "CAB",
-                    "bisnis": "MGA",
-                }],
-            })
-        ])
-        accounts = read_accounts_from_api(
-            api_url="https://example.invalid/ksapisvr",
-            no_hp="081234",
-            since="2026-02-01",
-            until="2026-02-28",
-            max_retries=0,
-            session=session,
-        )
-        self.assertEqual(accounts[0]["access_token"], "secret-token")
-        args, kwargs = session.requests[0]
-        self.assertEqual(args[0], "https://example.invalid/ksapisvr")
-        self.assertEqual(
-            kwargs["json"]["api_jsoncmonss"][0]["tanggalAkhir"],
-            "2026-02-28",
-        )
 
 
 class RetryTests(unittest.TestCase):
@@ -309,28 +231,11 @@ class RetryTests(unittest.TestCase):
 
 class FrequencyTests(unittest.TestCase):
 
-    def test_frequency_source_is_daily_for_rinci_and_direct_for_rekap(self):
+    def test_frequency_requested_for_rinci_and_rekap(self):
         rinci_fields = MetaAdsClient.insight_field_attempts("rinci")[0]
         rekap_fields = MetaAdsClient.insight_field_attempts("rekap")[0]
-        daily_fields = MetaAdsClient.daily_result_field_attempts()[0]
-        self.assertNotIn("frequency", rinci_fields)
+        self.assertIn("frequency", rinci_fields)
         self.assertIn("frequency", rekap_fields)
-        self.assertIn("frequency", daily_fields)
-        self.assertIn("impressions", daily_fields)
-        self.assertIn("reach", daily_fields)
-
-    def test_daily_frequency_uses_meta_value(self):
-        self.assertEqual(
-            daily_frequency_value({"frequency": "1.150628"}),
-            "1.150628",
-        )
-
-    def test_daily_frequency_falls_back_to_impressions_div_reach(self):
-        value = daily_frequency_value({
-            "impressions": "1150628",
-            "reach": "1000000",
-        })
-        self.assertAlmostEqual(float(value), 1.150628, places=6)
 
 
 class DailyResultsTests(unittest.TestCase):
@@ -403,7 +308,6 @@ class DailyResultsTests(unittest.TestCase):
                     "ad_id": "52510676405480",
                     "date_start": "2026-07-01",
                     "spend": "9000",
-                    "frequency": "1.150628",
                     "optimization_goal": "CONVERSATIONS",
                     "results": [{
                         "indicator": (
@@ -427,8 +331,6 @@ class DailyResultsTests(unittest.TestCase):
         self.assertEqual([row["Jam mulai"] for row in rows], [3, 10])
         self.assertEqual(rows[0]["Hasil"], "9")
         self.assertEqual(rows[0]["Biaya per hasil"], "1000.0")
-        self.assertEqual(rows[0]["Frekuensi"], "1.150628")
-        self.assertEqual(rows[1]["Frekuensi"], "1.150628")
         self.assertEqual(rows[1]["Hasil"], "")
         self.assertEqual(rows[1]["Biaya per hasil"], "")
         self.assertEqual(sum(float(row["Hasil"] or 0) for row in rows), 9.0)
@@ -670,41 +572,6 @@ class CliIntegrationTests(unittest.TestCase):
                 result_book.close()
 
 
-class CliApiSourceIntegrationTests(unittest.TestCase):
-    def test_cli_api_source_without_excel(self):
-        FakeMetaClient.created_tokens = []
-        with tempfile.TemporaryDirectory() as temp_dir:
-            output_path = os.path.join(temp_dir, "report.csv")
-            api_accounts = [{
-                "account_id": "123",
-                "access_token": "token-dari-api",
-                "cabang": "CAB",
-                "bisnis": "MGA",
-            }]
-            with patch(
-                "meta_ads_tool.cli.read_accounts_from_api",
-                return_value=api_accounts,
-            ), patch("meta_ads_tool.cli.MetaAdsClient", FakeMetaClient):
-                code = cli_main([
-                    "--sumber-akun", "api",
-                    "--source-api-nohp", "081234",
-                    "--mode", "rinci",
-                    "--status", "semua",
-                    "--since", "2026-08-01",
-                    "--until", "2026-08-05",
-                    "--format", "csv",
-                    "--output", output_path,
-                ])
-            self.assertEqual(code, 0)
-            self.assertEqual(FakeMetaClient.created_tokens, ["token-dari-api"])
-            self.assertTrue(os.path.isfile(output_path))
-            with open(output_path, "r", encoding="utf-8-sig", newline="") as handle:
-                reader = csv.DictReader(handle, delimiter=CSV_DELIMITER)
-                row = next(reader)
-                self.assertEqual(row["Tanggal"], "01-08-2026")
-                self.assertEqual(row["BISNIS"], "MGA")
-
-
 class ExportTests(unittest.TestCase):
     @staticmethod
     def sample_row():
@@ -712,7 +579,7 @@ class ExportTests(unittest.TestCase):
             "ID ACCOUNT": "123",
             "Nama akun": "=nama-berbahaya",
             "ID kampanye": "1001",
-            "Nama kampanye": "Kampanye | Juli",
+            "Nama kampanye": "Kampanye",
             "ID set iklan": "2001",
             "Nama set iklan": "Set",
             "ID iklan": "3001",
@@ -725,7 +592,7 @@ class ExportTests(unittest.TestCase):
             "Mulai": "2026-08-01T00:00:00+0700",
             "Berakhir": "2026-08-31T23:59:59+0700",
             "Impresi": "100",
-            "Frekuensi": "1.150628",
+            "Frekuensi": "1.25",
             "Klik tautan": "5",
             "CTR klik tautan": 5.0,
             "Biaya per klik tautan": "1000",
@@ -793,21 +660,19 @@ class ExportTests(unittest.TestCase):
             self.assertTrue(os.path.isfile(result.error_file))
             self.assertTrue(os.path.isfile(result.info_file))
             with open(csv_path, "r", encoding="utf-8-sig", newline="") as handle:
-                reader = csv.DictReader(handle, delimiter=CSV_DELIMITER)
+                reader = csv.DictReader(handle)
                 self.assertEqual(reader.fieldnames, CSV_REPORT_COLUMNS)
                 loaded = next(reader)
                 self.assertEqual(loaded["Nama akun"], "'=nama-berbahaya")
                 self.assertEqual(loaded["ID iklan"], "3001")
-                self.assertEqual(loaded["Nama kampanye"], "Kampanye | Juli")
-                self.assertEqual(loaded["Frekuensi"], "1.150628")
+                self.assertEqual(loaded["Frekuensi"], "1.25")
                 self.assertEqual(
                     loaded["Waktu (zona waktu akun iklan)"],
                     "07:00 - 07:59",
                 )
                 self.assertEqual(loaded["CABANG"], "CAB")
                 self.assertEqual(loaded["BISNIS"], "GADAI")
-                self.assertEqual(loaded["Tanggal"], "05-08-2026")
-                self.assertEqual(loaded["Tanggal proses"], "05-08-2026")
+                self.assertEqual(loaded["Tanggal proses"], "2026-08-05")
                 self.assertNotIn("TOKEN", loaded)
                 self.assertNotIn("ID set iklan", loaded)
                 self.assertNotIn("Jam mulai", loaded)

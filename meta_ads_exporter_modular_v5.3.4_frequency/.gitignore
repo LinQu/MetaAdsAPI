@@ -1,0 +1,8 @@
+.env
+__pycache__/
+*.py[cod]
+*.checkpoint.sqlite3
+*.checkpoint.sqlite3-wal
+*.checkpoint.sqlite3-shm
+*.xlsx
+*.csv
