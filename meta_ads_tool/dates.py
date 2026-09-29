@@ -42,8 +42,8 @@ def normalize_preset(value: str) -> str:
 def parse_iso_date(value: str, label: str) -> date:
     try:
         return datetime.strptime(value, "%Y-%m-%d").date()
-    except (TypeError, ValueError):
-        raise ValueError("{} harus berformat YYYY-MM-DD.".format(label))
+    except (TypeError, ValueError) as exc:
+        raise ValueError("{} harus berformat YYYY-MM-DD.".format(label)) from exc
 
 
 def today_jakarta() -> date:

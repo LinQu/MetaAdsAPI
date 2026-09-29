@@ -1,0 +1,1216 @@
+{
+ "artifacts": {
+  "report": {
+   "sheetnames": [
+    "Rinci Iklan",
+    "Error",
+    "Informasi"
+   ],
+   "sheets": {
+    "Error": {
+     "auto_filter": "",
+     "cells": [
+      [
+       "ID ACCOUNT",
+       "CABANG",
+       "BISNIS",
+       "ID iklan",
+       "Tahap",
+       "Error"
+      ]
+     ],
+     "column_widths": {
+      "A": 22.0,
+      "B": 18.0,
+      "C": 20.0,
+      "D": 22.0,
+      "E": 22.0,
+      "F": 100.0
+     },
+     "freeze_panes": "A2",
+     "hyperlinks": [],
+     "images": [],
+     "number_formats": [
+      [
+       "General",
+       "General",
+       "General",
+       "General",
+       "General",
+       "General"
+      ]
+     ],
+     "row_heights": {
+      "1": 28.0
+     },
+     "show_gridlines": false
+    },
+    "Informasi": {
+     "auto_filter": "",
+     "cells": [
+      [
+       "Parameter",
+       "Nilai"
+      ],
+      [
+       "Mode",
+       "rinci"
+      ],
+      [
+       "Status",
+       "semua"
+      ],
+      [
+       "API Version",
+       "v25.0"
+      ],
+      [
+       "Awal pelaporan",
+       "2026-08-01"
+      ],
+      [
+       "Akhir pelaporan",
+       "2026-08-05"
+      ],
+      [
+       "Sumber tanggal",
+       "manual"
+      ],
+      [
+       "Format output",
+       "xlsx"
+      ],
+      [
+       "Delimiter CSV",
+       "'-"
+      ],
+      [
+       "Header CSV",
+       "'-"
+      ],
+      [
+       "Gambar tertanam",
+       "tidak"
+      ],
+      [
+       "Sumber akun",
+       "excel"
+      ],
+      [
+       "Referensi sumber akun",
+       "<WORKSPACE>/project/akun.xlsx"
+      ],
+      [
+       "Sumber token",
+       "Kolom TOKEN pada file input; token tidak ditulis ke output, log, atau checkpoint."
+      ],
+      [
+       "Waktu pembuatan",
+       "<WAKTU_PEMBUATAN>"
+      ],
+      [
+       "Definisi status",
+       "Status efektif dibaca saat ekspor, bukan status historis pada tanggal laporan."
+      ],
+      [
+       "Definisi CTR",
+       "inline_link_click_ctr / CTR klik tautan, bukan CTR Semua"
+      ],
+      [
+       "Kategori waktu",
+       "Dini hari 00-04; Pagi 05-10; Siang 11-14; Sore 15-17; Malam 18-23."
+      ]
+     ],
+     "column_widths": {
+      "A": 26.0,
+      "B": 100.0
+     },
+     "freeze_panes": "",
+     "hyperlinks": [],
+     "images": [],
+     "number_formats": [
+      [
+       "General",
+       "General"
+      ],
+      [
+       "General",
+       "General"
+      ],
+      [
+       "General",
+       "General"
+      ],
+      [
+       "General",
+       "General"
+      ],
+      [
+       "General",
+       "General"
+      ],
+      [
+       "General",
+       "General"
+      ],
+      [
+       "General",
+       "General"
+      ],
+      [
+       "General",
+       "General"
+      ],
+      [
+       "General",
+       "General"
+      ],
+      [
+       "General",
+       "General"
+      ],
+      [
+       "General",
+       "General"
+      ],
+      [
+       "General",
+       "General"
+      ],
+      [
+       "General",
+       "General"
+      ],
+      [
+       "General",
+       "General"
+      ],
+      [
+       "General",
+       "General"
+      ],
+      [
+       "General",
+       "General"
+      ],
+      [
+       "General",
+       "General"
+      ],
+      [
+       "General",
+       "General"
+      ]
+     ],
+     "row_heights": {},
+     "show_gridlines": false
+    },
+    "Rinci Iklan": {
+     "auto_filter": "A1:AB13",
+     "cells": [
+      [
+       "ID ACCOUNT",
+       "Nama akun",
+       "ID kampanye",
+       "Nama kampanye",
+       "ID set iklan",
+       "Nama set iklan",
+       "ID iklan",
+       "Nama iklan",
+       "Tanggal",
+       "Waktu (zona waktu akun iklan)",
+       "Jam mulai",
+       "Kategori waktu",
+       "Pengaturan atribusi",
+       "Mulai",
+       "Berakhir",
+       "Impresi",
+       "Frekuensi",
+       "Klik tautan",
+       "CTR klik tautan",
+       "Biaya per klik tautan",
+       "Hasil",
+       "Biaya per hasil",
+       "Jumlah yang dibelanjakan",
+       "Mata uang",
+       "Awal pelaporan",
+       "Akhir pelaporan",
+       "CABANG",
+       "BISNIS"
+      ],
+      [
+       "123",
+       "Akun Test 123",
+       "1001",
+       "Kampanye Juli",
+       "2001",
+       "Set Iklan",
+       "3001",
+       "Butuh dana cepat, tanpa ribet",
+       [
+        "datetime",
+        "2026-08-01T00:00:00"
+       ],
+       "00:00 - 00:59",
+       0,
+       "Dini hari",
+       "{'3001': 7}",
+       [
+        "datetime",
+        "2026-08-01T00:00:00"
+       ],
+       [
+        "datetime",
+        "2026-08-01T23:59:59"
+       ],
+       344,
+       1.150628,
+       5,
+       0.0145,
+       986.4,
+       9,
+       1000,
+       4932,
+       "IDR",
+       [
+        "datetime",
+        "2026-08-01T00:00:00"
+       ],
+       [
+        "datetime",
+        "2026-08-05T00:00:00"
+       ],
+       "34THJO81",
+       "MGA"
+      ],
+      [
+       "123",
+       "Akun Test 123",
+       "1001",
+       "Kampanye Juli",
+       "2001",
+       "Set Iklan",
+       "3001",
+       "Butuh dana cepat, tanpa ribet",
+       [
+        "datetime",
+        "2026-08-01T00:00:00"
+       ],
+       "13:00 - 13:59",
+       13,
+       "Siang",
+       "{'3001': 7}",
+       [
+        "datetime",
+        "2026-08-01T00:00:00"
+       ],
+       [
+        "datetime",
+        "2026-08-01T23:59:59"
+       ],
+       13,
+       1.150628,
+       1,
+       0.07690000000000001,
+       96,
+       null,
+       null,
+       96,
+       "IDR",
+       [
+        "datetime",
+        "2026-08-01T00:00:00"
+       ],
+       [
+        "datetime",
+        "2026-08-05T00:00:00"
+       ],
+       "34THJO81",
+       "MGA"
+      ],
+      [
+       "123",
+       "Akun Test 123",
+       "1001",
+       "Kampanye Juli",
+       "2001",
+       "Set Iklan",
+       "3002",
+       "'=1+1alice",
+       [
+        "datetime",
+        "2026-08-01T00:00:00"
+       ],
+       "00:00 - 00:59",
+       0,
+       "Dini hari",
+       "{'3002': 7}",
+       [
+        "datetime",
+        "2026-08-01T00:00:00"
+       ],
+       [
+        "datetime",
+        "2026-08-01T23:59:59"
+       ],
+       344,
+       1.150628,
+       5,
+       0.0145,
+       986.4,
+       10,
+       900,
+       4932,
+       "IDR",
+       [
+        "datetime",
+        "2026-08-01T00:00:00"
+       ],
+       [
+        "datetime",
+        "2026-08-05T00:00:00"
+       ],
+       "34THJO81",
+       "MGA"
+      ],
+      [
+       "123",
+       "Akun Test 123",
+       "1001",
+       "Kampanye Juli",
+       "2001",
+       "Set Iklan",
+       "3002",
+       "'=1+1alice",
+       [
+        "datetime",
+        "2026-08-01T00:00:00"
+       ],
+       "13:00 - 13:59",
+       13,
+       "Siang",
+       "{'3002': 7}",
+       [
+        "datetime",
+        "2026-08-01T00:00:00"
+       ],
+       [
+        "datetime",
+        "2026-08-01T23:59:59"
+       ],
+       13,
+       1.150628,
+       1,
+       0.07690000000000001,
+       96,
+       null,
+       null,
+       96,
+       "IDR",
+       [
+        "datetime",
+        "2026-08-01T00:00:00"
+       ],
+       [
+        "datetime",
+        "2026-08-05T00:00:00"
+       ],
+       "34THJO81",
+       "MGA"
+      ],
+      [
+       "123",
+       "Akun Test 123",
+       "1001",
+       "Kampanye Juli",
+       "2001",
+       "Set Iklan",
+       "3003",
+       "Iklan Tanpa Hasil",
+       [
+        "datetime",
+        "2026-08-01T00:00:00"
+       ],
+       "00:00 - 00:59",
+       0,
+       "Dini hari",
+       "{'3003': 7}",
+       [
+        "datetime",
+        "2026-08-01T00:00:00"
+       ],
+       [
+        "datetime",
+        "2026-08-01T23:59:59"
+       ],
+       344,
+       1.150628,
+       5,
+       0.0145,
+       986.4,
+       null,
+       null,
+       4932,
+       "IDR",
+       [
+        "datetime",
+        "2026-08-01T00:00:00"
+       ],
+       [
+        "datetime",
+        "2026-08-05T00:00:00"
+       ],
+       "34THJO81",
+       "MGA"
+      ],
+      [
+       "123",
+       "Akun Test 123",
+       "1001",
+       "Kampanye Juli",
+       "2001",
+       "Set Iklan",
+       "3003",
+       "Iklan Tanpa Hasil",
+       [
+        "datetime",
+        "2026-08-01T00:00:00"
+       ],
+       "13:00 - 13:59",
+       13,
+       "Siang",
+       "{'3003': 7}",
+       [
+        "datetime",
+        "2026-08-01T00:00:00"
+       ],
+       [
+        "datetime",
+        "2026-08-01T23:59:59"
+       ],
+       13,
+       1.150628,
+       1,
+       0.07690000000000001,
+       96,
+       null,
+       null,
+       96,
+       "IDR",
+       [
+        "datetime",
+        "2026-08-01T00:00:00"
+       ],
+       [
+        "datetime",
+        "2026-08-05T00:00:00"
+       ],
+       "34THJO81",
+       "MGA"
+      ],
+      [
+       "456",
+       "Akun Test 456",
+       "1001",
+       "Kampanye Juli",
+       "2001",
+       "Set Iklan",
+       "4001",
+       "Butuh dana cepat, tanpa ribet",
+       [
+        "datetime",
+        "2026-08-01T00:00:00"
+       ],
+       "00:00 - 00:59",
+       0,
+       "Dini hari",
+       "{'4001': 7}",
+       [
+        "datetime",
+        "2026-08-01T00:00:00"
+       ],
+       [
+        "datetime",
+        "2026-08-01T23:59:59"
+       ],
+       344,
+       1.150628,
+       5,
+       0.0145,
+       986.4,
+       9,
+       1000,
+       4932,
+       "IDR",
+       [
+        "datetime",
+        "2026-08-01T00:00:00"
+       ],
+       [
+        "datetime",
+        "2026-08-05T00:00:00"
+       ],
+       "33KDGP81",
+       "HMC"
+      ],
+      [
+       "456",
+       "Akun Test 456",
+       "1001",
+       "Kampanye Juli",
+       "2001",
+       "Set Iklan",
+       "4001",
+       "Butuh dana cepat, tanpa ribet",
+       [
+        "datetime",
+        "2026-08-01T00:00:00"
+       ],
+       "13:00 - 13:59",
+       13,
+       "Siang",
+       "{'4001': 7}",
+       [
+        "datetime",
+        "2026-08-01T00:00:00"
+       ],
+       [
+        "datetime",
+        "2026-08-01T23:59:59"
+       ],
+       13,
+       1.150628,
+       1,
+       0.07690000000000001,
+       96,
+       null,
+       null,
+       96,
+       "IDR",
+       [
+        "datetime",
+        "2026-08-01T00:00:00"
+       ],
+       [
+        "datetime",
+        "2026-08-05T00:00:00"
+       ],
+       "33KDGP81",
+       "HMC"
+      ],
+      [
+       "456",
+       "Akun Test 456",
+       "1001",
+       "Kampanye Juli",
+       "2001",
+       "Set Iklan",
+       "4002",
+       "'=1+1alice",
+       [
+        "datetime",
+        "2026-08-01T00:00:00"
+       ],
+       "00:00 - 00:59",
+       0,
+       "Dini hari",
+       "{'4002': 7}",
+       [
+        "datetime",
+        "2026-08-01T00:00:00"
+       ],
+       [
+        "datetime",
+        "2026-08-01T23:59:59"
+       ],
+       344,
+       1.150628,
+       5,
+       0.0145,
+       986.4,
+       10,
+       900,
+       4932,
+       "IDR",
+       [
+        "datetime",
+        "2026-08-01T00:00:00"
+       ],
+       [
+        "datetime",
+        "2026-08-05T00:00:00"
+       ],
+       "33KDGP81",
+       "HMC"
+      ],
+      [
+       "456",
+       "Akun Test 456",
+       "1001",
+       "Kampanye Juli",
+       "2001",
+       "Set Iklan",
+       "4002",
+       "'=1+1alice",
+       [
+        "datetime",
+        "2026-08-01T00:00:00"
+       ],
+       "13:00 - 13:59",
+       13,
+       "Siang",
+       "{'4002': 7}",
+       [
+        "datetime",
+        "2026-08-01T00:00:00"
+       ],
+       [
+        "datetime",
+        "2026-08-01T23:59:59"
+       ],
+       13,
+       1.150628,
+       1,
+       0.07690000000000001,
+       96,
+       null,
+       null,
+       96,
+       "IDR",
+       [
+        "datetime",
+        "2026-08-01T00:00:00"
+       ],
+       [
+        "datetime",
+        "2026-08-05T00:00:00"
+       ],
+       "33KDGP81",
+       "HMC"
+      ],
+      [
+       "456",
+       "Akun Test 456",
+       "1001",
+       "Kampanye Juli",
+       "2001",
+       "Set Iklan",
+       "4003",
+       "Iklan Tanpa Hasil",
+       [
+        "datetime",
+        "2026-08-01T00:00:00"
+       ],
+       "00:00 - 00:59",
+       0,
+       "Dini hari",
+       "{'4003': 7}",
+       [
+        "datetime",
+        "2026-08-01T00:00:00"
+       ],
+       [
+        "datetime",
+        "2026-08-01T23:59:59"
+       ],
+       344,
+       1.150628,
+       5,
+       0.0145,
+       986.4,
+       null,
+       null,
+       4932,
+       "IDR",
+       [
+        "datetime",
+        "2026-08-01T00:00:00"
+       ],
+       [
+        "datetime",
+        "2026-08-05T00:00:00"
+       ],
+       "33KDGP81",
+       "HMC"
+      ],
+      [
+       "456",
+       "Akun Test 456",
+       "1001",
+       "Kampanye Juli",
+       "2001",
+       "Set Iklan",
+       "4003",
+       "Iklan Tanpa Hasil",
+       [
+        "datetime",
+        "2026-08-01T00:00:00"
+       ],
+       "13:00 - 13:59",
+       13,
+       "Siang",
+       "{'4003': 7}",
+       [
+        "datetime",
+        "2026-08-01T00:00:00"
+       ],
+       [
+        "datetime",
+        "2026-08-01T23:59:59"
+       ],
+       13,
+       1.150628,
+       1,
+       0.07690000000000001,
+       96,
+       null,
+       null,
+       96,
+       "IDR",
+       [
+        "datetime",
+        "2026-08-01T00:00:00"
+       ],
+       [
+        "datetime",
+        "2026-08-05T00:00:00"
+       ],
+       "33KDGP81",
+       "HMC"
+      ]
+     ],
+     "column_widths": {
+      "A": 22.0,
+      "AA": 18.0,
+      "AB": 20.0,
+      "B": 28.0,
+      "C": 22.0,
+      "D": 34.0,
+      "E": 22.0,
+      "F": 34.0,
+      "G": 22.0,
+      "H": 34.0,
+      "I": 13.0,
+      "J": 24.0,
+      "K": 12.0,
+      "L": 16.0,
+      "M": 24.0,
+      "N": 24.0,
+      "O": 24.0,
+      "P": 14.0,
+      "Q": 13.0,
+      "R": 14.0,
+      "S": 17.0,
+      "T": 20.0,
+      "U": 14.0,
+      "V": 18.0,
+      "W": 24.0,
+      "X": 12.0,
+      "Y": 16.0,
+      "Z": 16.0
+     },
+     "freeze_panes": "A2",
+     "hyperlinks": [],
+     "images": [],
+     "number_formats": [
+      [
+       "General",
+       "General",
+       "General",
+       "General",
+       "General",
+       "General",
+       "General",
+       "General",
+       "General",
+       "General",
+       "General",
+       "General",
+       "General",
+       "General",
+       "General",
+       "General",
+       "General",
+       "General",
+       "General",
+       "General",
+       "General",
+       "General",
+       "General",
+       "General",
+       "General",
+       "General",
+       "General",
+       "General"
+      ],
+      [
+       "@",
+       "General",
+       "@",
+       "General",
+       "@",
+       "General",
+       "@",
+       "General",
+       "yyyy-mm-dd",
+       "@",
+       "#,##0",
+       "General",
+       "General",
+       "yyyy-mm-dd hh:mm:ss",
+       "yyyy-mm-dd hh:mm:ss",
+       "#,##0",
+       "#,##0.00",
+       "#,##0",
+       "0.00%",
+       "#,##0.00",
+       "#,##0.00",
+       "#,##0.00",
+       "#,##0.00",
+       "General",
+       "yyyy-mm-dd",
+       "yyyy-mm-dd",
+       "General",
+       "General"
+      ],
+      [
+       "@",
+       "General",
+       "@",
+       "General",
+       "@",
+       "General",
+       "@",
+       "General",
+       "yyyy-mm-dd",
+       "@",
+       "#,##0",
+       "General",
+       "General",
+       "yyyy-mm-dd hh:mm:ss",
+       "yyyy-mm-dd hh:mm:ss",
+       "#,##0",
+       "#,##0.00",
+       "#,##0",
+       "0.00%",
+       "#,##0.00",
+       "#,##0.00",
+       "#,##0.00",
+       "#,##0.00",
+       "General",
+       "yyyy-mm-dd",
+       "yyyy-mm-dd",
+       "General",
+       "General"
+      ],
+      [
+       "@",
+       "General",
+       "@",
+       "General",
+       "@",
+       "General",
+       "@",
+       "General",
+       "yyyy-mm-dd",
+       "@",
+       "#,##0",
+       "General",
+       "General",
+       "yyyy-mm-dd hh:mm:ss",
+       "yyyy-mm-dd hh:mm:ss",
+       "#,##0",
+       "#,##0.00",
+       "#,##0",
+       "0.00%",
+       "#,##0.00",
+       "#,##0.00",
+       "#,##0.00",
+       "#,##0.00",
+       "General",
+       "yyyy-mm-dd",
+       "yyyy-mm-dd",
+       "General",
+       "General"
+      ],
+      [
+       "@",
+       "General",
+       "@",
+       "General",
+       "@",
+       "General",
+       "@",
+       "General",
+       "yyyy-mm-dd",
+       "@",
+       "#,##0",
+       "General",
+       "General",
+       "yyyy-mm-dd hh:mm:ss",
+       "yyyy-mm-dd hh:mm:ss",
+       "#,##0",
+       "#,##0.00",
+       "#,##0",
+       "0.00%",
+       "#,##0.00",
+       "#,##0.00",
+       "#,##0.00",
+       "#,##0.00",
+       "General",
+       "yyyy-mm-dd",
+       "yyyy-mm-dd",
+       "General",
+       "General"
+      ],
+      [
+       "@",
+       "General",
+       "@",
+       "General",
+       "@",
+       "General",
+       "@",
+       "General",
+       "yyyy-mm-dd",
+       "@",
+       "#,##0",
+       "General",
+       "General",
+       "yyyy-mm-dd hh:mm:ss",
+       "yyyy-mm-dd hh:mm:ss",
+       "#,##0",
+       "#,##0.00",
+       "#,##0",
+       "0.00%",
+       "#,##0.00",
+       "#,##0.00",
+       "#,##0.00",
+       "#,##0.00",
+       "General",
+       "yyyy-mm-dd",
+       "yyyy-mm-dd",
+       "General",
+       "General"
+      ],
+      [
+       "@",
+       "General",
+       "@",
+       "General",
+       "@",
+       "General",
+       "@",
+       "General",
+       "yyyy-mm-dd",
+       "@",
+       "#,##0",
+       "General",
+       "General",
+       "yyyy-mm-dd hh:mm:ss",
+       "yyyy-mm-dd hh:mm:ss",
+       "#,##0",
+       "#,##0.00",
+       "#,##0",
+       "0.00%",
+       "#,##0.00",
+       "#,##0.00",
+       "#,##0.00",
+       "#,##0.00",
+       "General",
+       "yyyy-mm-dd",
+       "yyyy-mm-dd",
+       "General",
+       "General"
+      ],
+      [
+       "@",
+       "General",
+       "@",
+       "General",
+       "@",
+       "General",
+       "@",
+       "General",
+       "yyyy-mm-dd",
+       "@",
+       "#,##0",
+       "General",
+       "General",
+       "yyyy-mm-dd hh:mm:ss",
+       "yyyy-mm-dd hh:mm:ss",
+       "#,##0",
+       "#,##0.00",
+       "#,##0",
+       "0.00%",
+       "#,##0.00",
+       "#,##0.00",
+       "#,##0.00",
+       "#,##0.00",
+       "General",
+       "yyyy-mm-dd",
+       "yyyy-mm-dd",
+       "General",
+       "General"
+      ],
+      [
+       "@",
+       "General",
+       "@",
+       "General",
+       "@",
+       "General",
+       "@",
+       "General",
+       "yyyy-mm-dd",
+       "@",
+       "#,##0",
+       "General",
+       "General",
+       "yyyy-mm-dd hh:mm:ss",
+       "yyyy-mm-dd hh:mm:ss",
+       "#,##0",
+       "#,##0.00",
+       "#,##0",
+       "0.00%",
+       "#,##0.00",
+       "#,##0.00",
+       "#,##0.00",
+       "#,##0.00",
+       "General",
+       "yyyy-mm-dd",
+       "yyyy-mm-dd",
+       "General",
+       "General"
+      ],
+      [
+       "@",
+       "General",
+       "@",
+       "General",
+       "@",
+       "General",
+       "@",
+       "General",
+       "yyyy-mm-dd",
+       "@",
+       "#,##0",
+       "General",
+       "General",
+       "yyyy-mm-dd hh:mm:ss",
+       "yyyy-mm-dd hh:mm:ss",
+       "#,##0",
+       "#,##0.00",
+       "#,##0",
+       "0.00%",
+       "#,##0.00",
+       "#,##0.00",
+       "#,##0.00",
+       "#,##0.00",
+       "General",
+       "yyyy-mm-dd",
+       "yyyy-mm-dd",
+       "General",
+       "General"
+      ],
+      [
+       "@",
+       "General",
+       "@",
+       "General",
+       "@",
+       "General",
+       "@",
+       "General",
+       "yyyy-mm-dd",
+       "@",
+       "#,##0",
+       "General",
+       "General",
+       "yyyy-mm-dd hh:mm:ss",
+       "yyyy-mm-dd hh:mm:ss",
+       "#,##0",
+       "#,##0.00",
+       "#,##0",
+       "0.00%",
+       "#,##0.00",
+       "#,##0.00",
+       "#,##0.00",
+       "#,##0.00",
+       "General",
+       "yyyy-mm-dd",
+       "yyyy-mm-dd",
+       "General",
+       "General"
+      ],
+      [
+       "@",
+       "General",
+       "@",
+       "General",
+       "@",
+       "General",
+       "@",
+       "General",
+       "yyyy-mm-dd",
+       "@",
+       "#,##0",
+       "General",
+       "General",
+       "yyyy-mm-dd hh:mm:ss",
+       "yyyy-mm-dd hh:mm:ss",
+       "#,##0",
+       "#,##0.00",
+       "#,##0",
+       "0.00%",
+       "#,##0.00",
+       "#,##0.00",
+       "#,##0.00",
+       "#,##0.00",
+       "General",
+       "yyyy-mm-dd",
+       "yyyy-mm-dd",
+       "General",
+       "General"
+      ],
+      [
+       "@",
+       "General",
+       "@",
+       "General",
+       "@",
+       "General",
+       "@",
+       "General",
+       "yyyy-mm-dd",
+       "@",
+       "#,##0",
+       "General",
+       "General",
+       "yyyy-mm-dd hh:mm:ss",
+       "yyyy-mm-dd hh:mm:ss",
+       "#,##0",
+       "#,##0.00",
+       "#,##0",
+       "0.00%",
+       "#,##0.00",
+       "#,##0.00",
+       "#,##0.00",
+       "#,##0.00",
+       "General",
+       "yyyy-mm-dd",
+       "yyyy-mm-dd",
+       "General",
+       "General"
+      ]
+     ],
+     "row_heights": {
+      "1": 36.0
+     },
+     "show_gridlines": false
+    }
+   }
+  }
+ },
+ "exit_code": 0
+}

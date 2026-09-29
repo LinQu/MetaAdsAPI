@@ -1,6 +1,7 @@
 import csv
 import json
 import os
+import shutil
 import sqlite3
 import tempfile
 import unittest
@@ -9,21 +10,35 @@ from unittest.mock import patch
 
 from openpyxl import Workbook, load_workbook
 
-from meta_ads_tool.api import MetaAdsClient, MetaApiError
-from meta_ads_tool.checkpoint import CheckpointMismatchError, CheckpointStore
-from meta_ads_tool.cli import main as cli_main
-from meta_ads_tool.constants import CSV_DELIMITER, CSV_REPORT_COLUMNS, INPUT_HEADERS
-from meta_ads_tool.dates import preset_date_range, resolve_date_range
-from meta_ads_tool.exporters import export_csv, export_xlsx, sanitize_spreadsheet_text
-from meta_ads_tool.input_api import (
+from meta_ads_tool.accounts.datameta import (
     build_datameta_body,
     parse_accounts_from_datameta_payload,
+    parse_datameta_response,
     read_accounts_from_api,
 )
-from meta_ads_tool.input_excel import read_accounts_from_excel
-from meta_ads_tool.metrics import choose_daily_result_detail, daily_frequency_value
-from meta_ads_tool.runner import process_rinci_account, run_accounts
-from meta_ads_tool.transform import normalize_ad_name, parse_hour_bucket, time_category
+from meta_ads_tool.accounts.excel import read_accounts_from_excel
+from meta_ads_tool.cli import (
+    home_report_directory,
+    project_root,
+    resolve_output,
+)
+from meta_ads_tool.cli import (
+    main as cli_main,
+)
+from meta_ads_tool.constants import CSV_DELIMITER, CSV_REPORT_COLUMNS, ERROR_COLUMNS, INPUT_HEADERS
+from meta_ads_tool.dates import preset_date_range, resolve_date_range
+from meta_ads_tool.graph.client import MetaAdsClient, MetaApiError
+from meta_ads_tool.processing.flatten import normalize_ad_name, parse_hour_bucket, time_category
+from meta_ads_tool.processing.metrics import choose_daily_result_detail, daily_frequency_value
+from meta_ads_tool.processing.runner import process_rinci_account, run_accounts
+from meta_ads_tool.reporting import (
+    export_csv,
+    export_xlsx,
+    resolve_csv_delimiter,
+    sanitize_spreadsheet_text,
+)
+from meta_ads_tool.storage.checkpoint import CheckpointMismatchError, CheckpointStore
+from meta_ads_tool.summary import format_elapsed_seconds
 
 
 class FakeResponse:
@@ -212,6 +227,117 @@ class InputApiTests(unittest.TestCase):
             kwargs["json"]["api_jsoncmonss"][0]["tanggalAkhir"],
             "2026-02-28",
         )
+
+    def test_parse_bom_and_stringified_json_response(self):
+        payload_text = '\ufeff' + json.dumps({
+            "status": "ok",
+            "Detail": [{
+                "idAcoount": "123",
+                "token": "secret-token",
+                "cabang": "CAB",
+                "bisnis": "MGA",
+            }],
+        })
+        response = FakeResponse(200, ValueError("not direct json"), text=payload_text)
+        parsed = parse_datameta_response(response)
+        self.assertEqual(parsed["status"], "ok")
+
+        stringified = json.dumps(json.dumps({"status": "ok", "Detail": []}))
+        response2 = FakeResponse(200, ValueError("nested"), text=stringified)
+        parsed2 = parse_datameta_response(response2)
+        self.assertEqual(parsed2["status"], "ok")
+
+    def test_parse_form_encoded_response(self):
+        detail = json.dumps([{
+            "idAcoount": "123",
+            "token": "secret-token",
+            "cabang": "CAB",
+            "bisnis": "MGA",
+        }])
+        response = FakeResponse(200, ValueError("not json"), text="status=ok&Detail=" + detail)
+        parsed = parse_datameta_response(response)
+        self.assertEqual(parsed["status"], "ok")
+        self.assertEqual(parsed["Detail"][0]["idAcoount"], "123")
+
+    def test_parse_nss_legacy_status_equals_response(self):
+        legacy_text = (
+            '{ status = ok , "Detail":['
+            '{"idAcoount":"1001712982604688","token":"secret-token",'
+            '"cabang":"34THJO81","bisnis":"MGA"}'
+            ']}'
+        )
+        response = FakeResponse(200, ValueError("malformed json"), text=legacy_text)
+        parsed = parse_datameta_response(response)
+        self.assertEqual(parsed["status"], "ok")
+        self.assertEqual(parsed["Detail"][0]["idAcoount"], "1001712982604688")
+
+    def test_api_account_allows_blank_cabang(self):
+        accounts = parse_accounts_from_datameta_payload({
+            "status": "ok",
+            "Detail": [{
+                "idAcoount": "381557894799853",
+                "token": "secret-token",
+                "cabang": "",
+                "bisnis": "HMC",
+            }],
+        })
+        self.assertEqual(len(accounts), 1)
+        self.assertEqual(accounts[0]["cabang"], "")
+        self.assertEqual(accounts[0]["bisnis"], "HMC")
+
+    def test_auto_uses_json_mode_for_nss_legacy_response(self):
+        legacy_text = (
+            '{ status = ok , "Detail":['
+            '{"idAcoount":"123","token":"secret-token",'
+            '"cabang":"CAB","bisnis":"MGA"}'
+            ']}'
+        )
+        session = FakeSession([
+            FakeResponse(200, ValueError("malformed json"), text=legacy_text),
+        ])
+        accounts = read_accounts_from_api(
+            api_url="https://example.invalid/ksapisvr",
+            no_hp="081234",
+            since="2026-02-01",
+            until="2026-02-28",
+            max_retries=0,
+            body_mode="auto",
+            session=session,
+        )
+        self.assertEqual(accounts[0]["account_id"], "123")
+        self.assertEqual(session.calls, 1)
+        _, kwargs = session.requests[0]
+        self.assertIn("json", kwargs)
+
+    def test_auto_falls_back_to_form_when_json_response_is_invalid(self):
+        session = FakeSession([
+            FakeResponse(200, ValueError("html"), text="<html>invalid request</html>"),
+            FakeResponse(200, {
+                "status": "ok",
+                "Detail": [{
+                    "idAcoount": "123",
+                    "token": "secret-token",
+                    "cabang": "CAB",
+                    "bisnis": "MGA",
+                }],
+            }),
+        ])
+        accounts = read_accounts_from_api(
+            api_url="https://example.invalid/ksapisvr",
+            no_hp="081234",
+            since="2026-02-01",
+            until="2026-02-28",
+            max_retries=0,
+            body_mode="auto",
+            session=session,
+        )
+        self.assertEqual(accounts[0]["account_id"], "123")
+        self.assertEqual(session.calls, 2)
+        _, first_kwargs = session.requests[0]
+        _, second_kwargs = session.requests[1]
+        self.assertIn("json", first_kwargs)
+        self.assertIn("data", second_kwargs)
+        self.assertIn("api_jsoncmonss", second_kwargs["data"])
 
 
 class RetryTests(unittest.TestCase):
@@ -626,7 +752,105 @@ class CheckpointTests(unittest.TestCase):
                 CheckpointStore(path, {"test": "different"}, resume=True)
 
 
-class CliIntegrationTests(unittest.TestCase):
+class OutputLocationTests(unittest.TestCase):
+    def test_project_output_location_uses_project_root(self):
+        output, fmt = resolve_output(
+            output_value="laporan.csv",
+            format_value="csv",
+            input_file="",
+            input_source="api",
+            mode="rinci",
+            status="semua",
+            since="2026-08-01",
+            until="2026-08-05",
+            output_location="project",
+        )
+        self.assertEqual(fmt, "csv")
+        self.assertEqual(output, os.path.join(project_root(), "laporan.csv"))
+
+    def test_home_output_location_uses_home_laporan_folder(self):
+        with patch("meta_ads_tool.cli.os.path.expanduser", return_value="/fake/home"):
+            output, fmt = resolve_output(
+                output_value="laporan.csv",
+                format_value="csv",
+                input_file="",
+                input_source="api",
+                mode="rinci",
+                status="semua",
+                since="2026-08-01",
+                until="2026-08-05",
+                output_location="home",
+            )
+            self.assertEqual(fmt, "csv")
+            self.assertEqual(
+                output,
+                os.path.abspath(os.path.join("/fake/home", "laporan", "laporan.csv")),
+            )
+
+    def test_absolute_output_path_wins_over_output_location(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            absolute = os.path.join(temp_dir, "absolute.csv")
+            output, fmt = resolve_output(
+                output_value=absolute,
+                format_value="csv",
+                input_file="",
+                input_source="api",
+                mode="rinci",
+                status="semua",
+                since="2026-08-01",
+                until="2026-08-05",
+                output_location="home",
+            )
+            self.assertEqual(fmt, "csv")
+            self.assertEqual(output, os.path.abspath(absolute))
+
+    def test_default_location_preserves_v544_behavior_for_api(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            old_cwd = os.getcwd()
+            try:
+                os.chdir(temp_dir)
+                output, fmt = resolve_output(
+                    output_value="",
+                    format_value="csv",
+                    input_file="",
+                    input_source="api",
+                    mode="rinci",
+                    status="semua",
+                    since="2026-08-01",
+                    until="2026-08-05",
+                    output_location="default",
+                )
+            finally:
+                os.chdir(old_cwd)
+            self.assertEqual(fmt, "csv")
+            self.assertEqual(os.path.dirname(output), temp_dir)
+
+
+
+class TechnicalOutputIsolationMixin:
+    """Cegah test menulis file teknis ke folder project asli.
+
+    ``cli.main`` selalu menaruh file ``_errors.csv``/``_info.csv``/checkpoint di
+    ``auxiliary_output_directory()``, yang menunjuk ``project_root()``. Test yang
+    hanya mengarahkan output utama ke temp dir tetap akan menimpa folder project
+    asli bila folder teknis tidak diisolasi.
+    """
+
+    def setUp(self):
+        super().setUp()
+        isolation_dir = tempfile.mkdtemp(prefix="meta_ads_teknis_")
+        for target in (
+            "meta_ads_tool.paths.project_root",
+            "meta_ads_tool.cli.project_root",
+            "meta_ads_tool.summary.auxiliary_output_directory",
+        ):
+            patcher = patch(target, return_value=isolation_dir)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        self.addCleanup(shutil.rmtree, isolation_dir, True)
+
+
+class CliIntegrationTests(TechnicalOutputIsolationMixin, unittest.TestCase):
     def test_cli_end_to_end_without_network(self):
         FakeMetaClient.created_tokens = []
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -639,8 +863,18 @@ class CliIntegrationTests(unittest.TestCase):
             workbook.save(input_path)
             workbook.close()
 
-            with patch("meta_ads_tool.cli.MetaAdsClient", FakeMetaClient):
+            # `--sumber-akun excel` wajib eksplisit: tanpa itu argparse memakai
+            # META_ACCOUNT_SOURCE dari .env lokal dan test ini contacting API
+            # DATAMETA produksi sungguhan.
+            with patch("meta_ads_tool.cli.MetaAdsClient", FakeMetaClient), patch(
+                "meta_ads_tool.cli.read_accounts_from_api",
+                side_effect=AssertionError(
+                    "test hermetik tidak boleh memanggil API DATAMETA"
+                ),
+            ):
                 code = cli_main([
+                    "--sumber-akun",
+                    "excel",
                     "--mode",
                     "rinci",
                     "--status",
@@ -670,7 +904,7 @@ class CliIntegrationTests(unittest.TestCase):
                 result_book.close()
 
 
-class CliApiSourceIntegrationTests(unittest.TestCase):
+class CliApiSourceIntegrationTests(TechnicalOutputIsolationMixin, unittest.TestCase):
     def test_cli_api_source_without_excel(self):
         FakeMetaClient.created_tokens = []
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -705,7 +939,7 @@ class CliApiSourceIntegrationTests(unittest.TestCase):
                 self.assertEqual(row["BISNIS"], "MGA")
 
 
-class ExportTests(unittest.TestCase):
+class ExportTests(TechnicalOutputIsolationMixin, unittest.TestCase):
     @staticmethod
     def sample_row():
         return {
@@ -812,6 +1046,255 @@ class ExportTests(unittest.TestCase):
                 self.assertNotIn("ID set iklan", loaded)
                 self.assertNotIn("Jam mulai", loaded)
                 self.assertNotIn("Kategori waktu", loaded)
+
+    def test_csv_flexible_delimiters(self):
+        row = self.sample_row()
+        cases = {
+            "comma": ",",
+            "tab": "\t",
+            "pipe": "|",
+            "semicolon": ";",
+            ",": ",",
+            "|": "|",
+            ";": ";",
+            "tsv": "\t",
+        }
+        with tempfile.TemporaryDirectory() as temp_dir:
+            for index, (choice, expected) in enumerate(cases.items()):
+                with self.subTest(choice=choice):
+                    self.assertEqual(resolve_csv_delimiter(choice), expected)
+                    csv_path = os.path.join(temp_dir, "report_{}.csv".format(index))
+                    result = export_csv(
+                        output_file=csv_path,
+                        mode="rinci",
+                        rows=[row],
+                        errors=[],
+                        input_file="input.xlsx",
+                        api_version="v25.0",
+                        since="2026-08-01",
+                        until="2026-08-05",
+                        status_filter="semua",
+                        date_source="manual",
+                        process_date="2026-08-05",
+                        csv_delimiter=choice,
+                    )
+                    for path in (result.report_file, result.error_file, result.info_file):
+                        with open(path, "r", encoding="utf-8-sig", newline="") as handle:
+                            first_line = handle.readline()
+                            self.assertIn(expected, first_line)
+                    with open(csv_path, "r", encoding="utf-8-sig", newline="") as handle:
+                        loaded = next(csv.DictReader(handle, delimiter=expected))
+                        self.assertEqual(loaded["Tanggal"], "05-08-2026")
+                        self.assertEqual(loaded["Frekuensi"], "1.150628")
+
+    def test_csv_without_header(self):
+        row = self.sample_row()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            csv_path = os.path.join(temp_dir, "report_no_header.csv")
+            result = export_csv(
+                output_file=csv_path,
+                mode="rinci",
+                rows=[row],
+                errors=[{column: "" for column in ERROR_COLUMNS}],
+                input_file="input.xlsx",
+                api_version="v25.0",
+                since="2026-08-01",
+                until="2026-08-05",
+                status_filter="semua",
+                date_source="manual",
+                process_date="2026-08-05",
+                csv_delimiter="pipe",
+                csv_include_header=False,
+            )
+            with open(result.report_file, "r", encoding="utf-8-sig", newline="") as handle:
+                rows = list(csv.reader(handle, delimiter="|"))
+                self.assertEqual(len(rows), 1)
+                self.assertEqual(rows[0][0], "123")
+                self.assertNotEqual(rows[0], CSV_REPORT_COLUMNS)
+                self.assertEqual(rows[0][CSV_REPORT_COLUMNS.index("Tanggal")], "05-08-2026")
+            with open(result.error_file, "r", encoding="utf-8-sig", newline="") as handle:
+                first = next(csv.reader(handle, delimiter="|"))
+                self.assertNotEqual(first, ERROR_COLUMNS)
+            with open(result.info_file, "r", encoding="utf-8-sig", newline="") as handle:
+                first = next(csv.reader(handle, delimiter="|"))
+                self.assertNotEqual(first, ["Parameter", "Nilai"])
+                self.assertEqual(first[0], "Mode")
+
+    def test_cli_csv_no_header(self):
+        FakeMetaClient.created_tokens = []
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_path = os.path.join(temp_dir, "report.csv")
+            api_accounts = [{
+                "account_id": "123",
+                "access_token": "token-dari-api",
+                "cabang": "CAB",
+                "bisnis": "MGA",
+            }]
+            with patch(
+                "meta_ads_tool.cli.read_accounts_from_api",
+                return_value=api_accounts,
+            ), patch("meta_ads_tool.cli.MetaAdsClient", FakeMetaClient):
+                code = cli_main([
+                    "--sumber-akun", "api",
+                    "--source-api-nohp", "081234",
+                    "--mode", "rinci",
+                    "--status", "semua",
+                    "--since", "2026-08-01",
+                    "--until", "2026-08-05",
+                    "--format", "csv",
+                    "--csv-delimiter", "pipe",
+                    "--csv-no-header",
+                    "--output", output_path,
+                ])
+            self.assertEqual(code, 0)
+            with open(output_path, "r", encoding="utf-8-sig", newline="") as handle:
+                first = next(csv.reader(handle, delimiter="|"))
+                self.assertEqual(first[0], "123")
+                self.assertNotEqual(first, CSV_REPORT_COLUMNS)
+
+    def test_cli_project_output_location(self):
+        FakeMetaClient.created_tokens = []
+        with tempfile.TemporaryDirectory() as temp_dir:
+            api_accounts = [{
+                "account_id": "123",
+                "access_token": "token-dari-api",
+                "cabang": "CAB",
+                "bisnis": "MGA",
+            }]
+            with patch(
+                "meta_ads_tool.cli.read_accounts_from_api",
+                return_value=api_accounts,
+            ), patch("meta_ads_tool.cli.MetaAdsClient", FakeMetaClient), patch(
+                "meta_ads_tool.cli.project_root", return_value=temp_dir
+            ):
+                code = cli_main([
+                    "--sumber-akun", "api",
+                    "--source-api-nohp", "081234",
+                    "--mode", "rinci",
+                    "--status", "semua",
+                    "--since", "2026-08-01",
+                    "--until", "2026-08-05",
+                    "--format", "csv",
+                    "--output-location", "project",
+                    "--output", "project_report.csv",
+                ])
+            self.assertEqual(code, 0)
+            self.assertTrue(os.path.isfile(os.path.join(temp_dir, "project_report.csv")))
+
+    def test_cli_home_output_location(self):
+        FakeMetaClient.created_tokens = []
+        with tempfile.TemporaryDirectory() as temp_dir:
+            report_dir = os.path.join(temp_dir, "laporan")
+            api_accounts = [{
+                "account_id": "123",
+                "access_token": "token-dari-api",
+                "cabang": "CAB",
+                "bisnis": "MGA",
+            }]
+            with patch(
+                "meta_ads_tool.cli.read_accounts_from_api",
+                return_value=api_accounts,
+            ), patch("meta_ads_tool.cli.MetaAdsClient", FakeMetaClient), patch(
+                "meta_ads_tool.cli.home_report_directory", return_value=report_dir
+            ):
+                code = cli_main([
+                    "--sumber-akun", "api",
+                    "--source-api-nohp", "081234",
+                    "--mode", "rinci",
+                    "--status", "semua",
+                    "--since", "2026-08-01",
+                    "--until", "2026-08-05",
+                    "--format", "csv",
+                    "--output-location", "home",
+                    "--output", "home_report.csv",
+                ])
+            self.assertEqual(code, 0)
+            self.assertTrue(os.path.isfile(os.path.join(report_dir, "home_report.csv")))
+
+    def test_home_location_moves_only_report_and_keeps_technical_files_in_project(self):
+        FakeMetaClient.created_tokens = []
+        with tempfile.TemporaryDirectory() as temp_dir:
+            report_dir = os.path.join(temp_dir, "home", "laporan")
+            project_dir = os.path.join(temp_dir, "project")
+            os.makedirs(project_dir, exist_ok=True)
+            api_accounts = [{
+                "account_id": "123",
+                "access_token": "token-dari-api",
+                "cabang": "CAB",
+                "bisnis": "MGA",
+            }]
+            messages = []
+            with patch(
+                "meta_ads_tool.cli.read_accounts_from_api",
+                return_value=api_accounts,
+            ), patch("meta_ads_tool.cli.MetaAdsClient", FakeMetaClient), patch(
+                "meta_ads_tool.cli.home_report_directory", return_value=report_dir
+            ), patch(
+                "meta_ads_tool.cli.project_root", return_value=project_dir
+            ), patch(
+                "meta_ads_tool.paths.project_root", return_value=project_dir
+            ), patch(
+                "meta_ads_tool.cli.info", side_effect=messages.append
+            ), patch(
+                "meta_ads_tool.summary.info", side_effect=messages.append
+            ):
+                code = cli_main([
+                    "--sumber-akun", "api",
+                    "--source-api-nohp", "081234",
+                    "--mode", "rinci",
+                    "--status", "semua",
+                    "--since", "2026-08-01",
+                    "--until", "2026-08-05",
+                    "--format", "csv",
+                    "--output-location", "home",
+                    "--keep-checkpoint",
+                    "--output", "home_report.csv",
+                ])
+            self.assertEqual(code, 0)
+            self.assertTrue(os.path.isfile(os.path.join(report_dir, "home_report.csv")))
+            self.assertFalse(os.path.exists(os.path.join(report_dir, "home_report_errors.csv")))
+            self.assertFalse(os.path.exists(os.path.join(report_dir, "home_report_info.csv")))
+            self.assertTrue(os.path.isfile(os.path.join(project_dir, "home_report_errors.csv")))
+            self.assertTrue(os.path.isfile(os.path.join(project_dir, "home_report_info.csv")))
+            self.assertTrue(os.path.isfile(os.path.join(project_dir, "home_report.csv.checkpoint.sqlite3")))
+            self.assertTrue(any(message.startswith("Durasi proses") for message in messages))
+            self.assertTrue(any(message.startswith("Selesai proses") for message in messages))
+
+    def test_elapsed_duration_format(self):
+        self.assertEqual(format_elapsed_seconds(0), "00:00:00")
+        self.assertEqual(format_elapsed_seconds(61), "00:01:01")
+        self.assertEqual(format_elapsed_seconds(3661.6), "01:01:02")
+
+    def test_cli_semicolon_delimiter(self):
+        FakeMetaClient.created_tokens = []
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_path = os.path.join(temp_dir, "report.csv")
+            api_accounts = [{
+                "account_id": "123",
+                "access_token": "token-dari-api",
+                "cabang": "CAB",
+                "bisnis": "MGA",
+            }]
+            with patch(
+                "meta_ads_tool.cli.read_accounts_from_api",
+                return_value=api_accounts,
+            ), patch("meta_ads_tool.cli.MetaAdsClient", FakeMetaClient):
+                code = cli_main([
+                    "--sumber-akun", "api",
+                    "--source-api-nohp", "081234",
+                    "--mode", "rinci",
+                    "--status", "semua",
+                    "--since", "2026-08-01",
+                    "--until", "2026-08-05",
+                    "--format", "csv",
+                    "--csv-delimiter", "semicolon",
+                    "--output", output_path,
+                ])
+            self.assertEqual(code, 0)
+            with open(output_path, "r", encoding="utf-8-sig", newline="") as handle:
+                reader = csv.DictReader(handle, delimiter=";")
+                row_loaded = next(reader)
+                self.assertEqual(row_loaded["BISNIS"], "MGA")
 
 
 if __name__ == "__main__":

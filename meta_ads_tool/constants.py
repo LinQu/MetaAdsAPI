@@ -23,6 +23,13 @@ PRESET_CHOICES = (
 OUTPUT_FORMAT_CHOICES = ("xlsx", "csv")
 INPUT_SOURCE_CHOICES = ("excel", "api")
 CSV_DELIMITER = "|"
+CSV_DELIMITER_CHOICES = ("comma", "tab", "pipe", "semicolon")
+CSV_DELIMITER_MAP = {
+    "comma": ",",
+    "tab": "\t",
+    "pipe": "|",
+    "semicolon": ";",
+}
 
 REKAP_COLUMNS = [
     "ID ACCOUNT",

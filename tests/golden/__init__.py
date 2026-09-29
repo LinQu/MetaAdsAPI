@@ -1,0 +1,1 @@
+"""Paket golden regression tests."""

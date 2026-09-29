@@ -2,7 +2,7 @@
 
 import argparse
 import os
-import sys
+import time
 from typing import List, Optional, Tuple
 
 try:
@@ -13,74 +13,48 @@ except ImportError:
     pass
 
 from . import __version__
-from .api import MetaAdsClient
-from .checkpoint import (
-    CheckpointMismatchError,
-    CheckpointStore,
-    accounts_source_fingerprint,
-    build_job_signature,
+from .accounts.datameta import SOURCE_API_BODY_MODES, read_accounts_from_api
+from .accounts.excel import read_accounts_from_excel, validate_input_file
+from .config_env import (
+    DEFAULT_API_VERSION,
+    DEFAULT_INPUT_SOURCE,
+    DEFAULT_OUTPUT_LOCATION,
+    DEFAULT_SHEET,
+    DEFAULT_SOURCE_API_BODY_MODE,
+    DEFAULT_SOURCE_API_JAM,
+    DEFAULT_SOURCE_API_LAT,
+    DEFAULT_SOURCE_API_LON,
+    DEFAULT_SOURCE_API_NOHP,
+    DEFAULT_SOURCE_API_URL,
+    ENV_PRESET,
+    ENV_SINCE,
+    ENV_UNTIL,
+    OUTPUT_LOCATION_CHOICES,
+    normalize_csv_delimiter,
+    normalize_status,
+    resolved_default_csv_delimiter,
+    resolved_default_status,
 )
 from .constants import (
+    CSV_DELIMITER_CHOICES,
     INPUT_SOURCE_CHOICES,
     OUTPUT_FORMAT_CHOICES,
     PRESET_CHOICES,
     STATUS_CHOICES,
 )
 from .dates import normalize_preset, resolve_date_range
-from .exporters import ExportResult, export_report
-from .input_api import DEFAULT_SOURCE_API_URL, read_accounts_from_api
-from .input_excel import read_accounts_from_excel, validate_input_file
-from .logging_utils import error, info, warning
-from .runner import run_accounts
-
-
-DEFAULT_API_VERSION = os.getenv("META_API_VERSION", "v25.0").strip() or "v25.0"
-DEFAULT_SHEET = os.getenv("META_ACCOUNT_SHEET", "").strip()
-DEFAULT_STATUS = os.getenv("META_AD_STATUS", "aktif").strip().lower() or "aktif"
-ENV_SINCE = os.getenv("META_REPORT_SINCE", "").strip()
-ENV_UNTIL = os.getenv("META_REPORT_UNTIL", "").strip()
-ENV_PRESET = os.getenv("META_REPORT_PRESET", "").strip()
-DEFAULT_INPUT_SOURCE = os.getenv("META_ACCOUNT_SOURCE", "excel").strip().lower() or "excel"
-DEFAULT_SOURCE_API_URL = os.getenv(
-    "META_SOURCE_API_URL", DEFAULT_SOURCE_API_URL
-).strip() or DEFAULT_SOURCE_API_URL
-DEFAULT_SOURCE_API_NOHP = os.getenv("META_SOURCE_API_NOHP", "").strip()
-DEFAULT_SOURCE_API_LAT = os.getenv("META_SOURCE_API_LAT", "0.00").strip() or "0.00"
-DEFAULT_SOURCE_API_LON = os.getenv("META_SOURCE_API_LON", "0.00").strip() or "0.00"
-DEFAULT_SOURCE_API_JAM = os.getenv(
-    "META_SOURCE_API_JAM_MULAI", "-10:00:00"
-).strip() or "-10:00:00"
-
-
-def normalize_status(value: str) -> str:
-    normalized = str(value or "").strip().lower().replace("_", "-")
-    aliases = {
-        "aktif": "aktif",
-        "active": "aktif",
-        "semua": "semua",
-        "all": "semua",
-        "tidak-aktif": "tidak-aktif",
-        "tidakaktif": "tidak-aktif",
-        "nonaktif": "tidak-aktif",
-        "inactive": "tidak-aktif",
-    }
-    if normalized not in aliases:
-        raise argparse.ArgumentTypeError(
-            "status harus salah satu dari: {}".format(", ".join(STATUS_CHOICES))
-        )
-    return aliases[normalized]
-
-
-def _resolved_default_status() -> str:
-    try:
-        return normalize_status(DEFAULT_STATUS)
-    except argparse.ArgumentTypeError:
-        warning(
-            "META_AD_STATUS '{}' tidak valid; default aktif dipakai.".format(
-                DEFAULT_STATUS
-            )
-        )
-        return "aktif"
+from .graph.client import MetaAdsClient
+from .logging_utils import error, info, local_now, warning
+from .paths import auxiliary_output_directory, home_report_directory, project_root
+from .processing.runner import run_accounts
+from .reporting import export_report, resolve_csv_delimiter
+from .storage.checkpoint import (
+    CheckpointMismatchError,
+    CheckpointStore,
+    accounts_source_fingerprint,
+    build_job_signature,
+)
+from .summary import print_summary
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -88,7 +62,7 @@ def build_parser() -> argparse.ArgumentParser:
         description=(
             "Ambil Meta Ads dengan sumber akun dari Excel A:D atau API DATAMETA, "
             "lalu ekspor ke XLSX/CSV. Token digunakan per akun dan tidak diekspor. "
-            "CSV memakai separator | dan tanggal DD-MM-YYYY."
+            "Delimiter CSV dapat dipilih (comma/tab/pipe/semicolon) dan tanggal DD-MM-YYYY."
         )
     )
     parser.add_argument(
@@ -134,6 +108,27 @@ def build_parser() -> argparse.ArgumentParser:
         help="Nilai jamMulai body DATAMETA. Default: %(default)s.",
     )
     parser.add_argument(
+        "--source-api-body-mode",
+        choices=SOURCE_API_BODY_MODES,
+        default=(
+            DEFAULT_SOURCE_API_BODY_MODE
+            if DEFAULT_SOURCE_API_BODY_MODE in SOURCE_API_BODY_MODES
+            else "auto"
+        ),
+        help=(
+            "Format POST DATAMETA: auto mencoba JSON lalu form, json memaksa "
+            "application/json, form memaksa form-urlencoded. Default: %(default)s."
+        ),
+    )
+    parser.add_argument(
+        "--source-api-debug",
+        action="store_true",
+        help=(
+            "Tampilkan diagnostic/preview response DATAMETA yang sudah menyensor "
+            "token dan noHP. Gunakan untuk troubleshooting."
+        ),
+    )
+    parser.add_argument(
         "--source-api-timeout",
         type=float,
         default=60.0,
@@ -155,13 +150,33 @@ def build_parser() -> argparse.ArgumentParser:
         "--status",
         type=normalize_status,
         choices=STATUS_CHOICES,
-        default=_resolved_default_status(),
+        default=resolved_default_status(),
         help="Filter status efektif saat ekspor. Default: %(default)s.",
     )
     parser.add_argument(
         "--output",
         default="",
-        help="File output. Ekstensi boleh .xlsx atau .csv.",
+        help=(
+            "Nama/path file output. Ekstensi boleh .xlsx atau .csv. Jika path "
+            "absolut diberikan, --output-location tidak mengubah lokasinya."
+        ),
+    )
+    parser.add_argument(
+        "--output-location",
+        "--lokasi-output",
+        dest="output_location",
+        choices=OUTPUT_LOCATION_CHOICES,
+        default=(
+            DEFAULT_OUTPUT_LOCATION
+            if DEFAULT_OUTPUT_LOCATION in OUTPUT_LOCATION_CHOICES
+            else "default"
+        ),
+        help=(
+            "Base folder FILE LAPORAN: default = perilaku lokasi laporan lama, "
+            "project = folder ScrapeMeta.py, home = ~/laporan. File teknis CSV "
+            "(_errors/_info) dan checkpoint default tetap di folder project. "
+            "Default: %(default)s."
+        ),
     )
     parser.add_argument(
         "--format",
@@ -170,6 +185,28 @@ def build_parser() -> argparse.ArgumentParser:
         choices=OUTPUT_FORMAT_CHOICES,
         default=None,
         help="Format output. Jika kosong, diinfer dari --output atau default xlsx.",
+    )
+    parser.add_argument(
+        "--csv-delimiter",
+        "--delimiter",
+        dest="csv_delimiter",
+        type=normalize_csv_delimiter,
+        choices=CSV_DELIMITER_CHOICES,
+        default=resolved_default_csv_delimiter(),
+        help=(
+            "Delimiter CSV: comma (,), tab, pipe (|), atau semicolon (;). "
+            "Hanya berlaku untuk --format csv. Default: %(default)s."
+        ),
+    )
+    parser.add_argument(
+        "--csv-no-header",
+        "--tanpa-header-csv",
+        dest="csv_no_header",
+        action="store_true",
+        help=(
+            "Hilangkan baris header pada output CSV utama dan file pendamping "
+            "_errors.csv/_info.csv. Hanya berlaku untuk --format csv."
+        ),
     )
     parser.add_argument(
         "--sheet",
@@ -228,7 +265,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--checkpoint",
         default="",
-        help="Lokasi checkpoint SQLite. Default: <output>.checkpoint.sqlite3.",
+        help="Lokasi checkpoint SQLite. Default: folder project/<nama-output>.checkpoint.sqlite3.",
     )
     parser.add_argument(
         "--resume",
@@ -248,6 +285,27 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def resolve_output_directory(
+    input_file: str,
+    input_source: str,
+    output_location: str,
+) -> str:
+    if output_location == "project":
+        return project_root()
+    if output_location == "home":
+        return home_report_directory()
+    if output_location != "default":
+        raise ValueError(
+            "--output-location harus salah satu dari: {}.".format(
+                ", ".join(OUTPUT_LOCATION_CHOICES)
+            )
+        )
+
+    if input_source == "api":
+        return os.getcwd()
+    return os.path.dirname(os.path.abspath(input_file))
+
+
 def make_default_output(
     input_file: str,
     input_source: str,
@@ -256,12 +314,16 @@ def make_default_output(
     since: str,
     until: str,
     output_format: str,
+    output_location: str = "default",
 ) -> str:
+    directory = resolve_output_directory(
+        input_file=input_file,
+        input_source=input_source,
+        output_location=output_location,
+    )
     if input_source == "api":
-        directory = os.getcwd()
         stem = "datameta_api"
     else:
-        directory = os.path.dirname(os.path.abspath(input_file))
         stem = os.path.splitext(os.path.basename(input_file))[0]
     filename = "{}_meta_ads_{}_{}_{}_{}.{}".format(
         stem,
@@ -283,6 +345,7 @@ def resolve_output(
     status: str,
     since: str,
     until: str,
+    output_location: str = "default",
 ) -> Tuple[str, str]:
     extension = os.path.splitext(output_value)[1].lower() if output_value else ""
     inferred = ""
@@ -306,6 +369,14 @@ def resolve_output(
         output_file = output_value
         if not extension:
             output_file += ".{}".format(output_format)
+
+        if not os.path.isabs(output_file) and output_location != "default":
+            base_directory = resolve_output_directory(
+                input_file=input_file,
+                input_source=input_source,
+                output_location=output_location,
+            )
+            output_file = os.path.join(base_directory, output_file)
     else:
         output_file = make_default_output(
             input_file=input_file,
@@ -315,6 +386,7 @@ def resolve_output(
             since=since,
             until=until,
             output_format=output_format,
+            output_location=output_location,
         )
     return os.path.abspath(output_file), output_format
 
@@ -360,44 +432,12 @@ def validate_runtime(
         )
     if output_format not in OUTPUT_FORMAT_CHOICES:
         raise RuntimeError("Format output tidak valid.")
-
-
-def _print_summary(
-    args: argparse.Namespace,
-    since: str,
-    until: str,
-    date_source: str,
-    result: ExportResult,
-    total_accounts: int,
-    skipped_accounts: int,
-    row_count: int,
-    error_count: int,
-    checkpoint_path: str,
-    checkpoint_kept: bool,
-) -> None:
-    info("RINGKASAN")
-    info("Mode              : {}".format(args.mode))
-    info("Status            : {}".format(args.status))
-    info("Sumber akun       : {}".format(args.input_source))
-    info("Periode           : {} s.d. {} ({})".format(since, until, date_source))
-    info("Total akun sumber : {}".format(total_accounts))
-    info("Akun dari resume  : {}".format(skipped_accounts))
-    info("Total baris output: {}".format(row_count))
-    info("Total error       : {}".format(error_count))
-    info("File laporan      : {}".format(result.report_file))
-    if result.error_file:
-        info("File error        : {}".format(result.error_file))
-    if result.info_file:
-        info("File informasi    : {}".format(result.info_file))
-    info(
-        "Checkpoint        : {} ({})".format(
-            checkpoint_path,
-            "disimpan" if checkpoint_kept else "dihapus setelah sukses",
-        )
-    )
+    resolve_csv_delimiter(args.csv_delimiter)
 
 
 def main(argv: Optional[List[str]] = None) -> int:
+    started_at = local_now()
+    started_perf = time.perf_counter()
     parser = build_parser()
     args = parser.parse_args(argv)
 
@@ -419,6 +459,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             status=args.status,
             since=since,
             until=until,
+            output_location=args.output_location,
         )
     except ValueError as exc:
         parser.error(str(exc))
@@ -437,6 +478,8 @@ def main(argv: Optional[List[str]] = None) -> int:
                 jam_mulai=args.source_api_jam_mulai,
                 timeout_seconds=args.source_api_timeout,
                 max_retries=args.source_api_retries,
+                body_mode=args.source_api_body_mode,
+                debug_response=args.source_api_debug,
             )
             source_reference = args.source_api_url
         else:
@@ -459,8 +502,11 @@ def main(argv: Optional[List[str]] = None) -> int:
         and output_format == "xlsx"
         and not args.tanpa_gambar
     )
+    technical_directory = os.path.abspath(auxiliary_output_directory())
+    os.makedirs(technical_directory, exist_ok=True)
+    default_checkpoint_name = os.path.basename(output_file) + ".checkpoint.sqlite3"
     checkpoint_path = os.path.abspath(
-        args.checkpoint or (output_file + ".checkpoint.sqlite3")
+        args.checkpoint or os.path.join(technical_directory, default_checkpoint_name)
     )
     signature = build_job_signature(
         input_file=args.input_file,
@@ -516,6 +562,9 @@ def main(argv: Optional[List[str]] = None) -> int:
             embed_images=embed_images,
             input_source=args.input_source,
             source_reference=source_reference,
+            csv_delimiter=args.csv_delimiter,
+            csv_include_header=not args.csv_no_header,
+            auxiliary_directory=technical_directory,
         )
 
         if args.keep_checkpoint:
@@ -525,7 +574,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             checkpoint.delete_file()
             checkpoint_closed = True
 
-        _print_summary(
+        print_summary(
             args=args,
             since=since,
             until=until,
@@ -537,6 +586,9 @@ def main(argv: Optional[List[str]] = None) -> int:
             error_count=len(run_result.errors),
             checkpoint_path=checkpoint_path,
             checkpoint_kept=args.keep_checkpoint,
+            started_at=started_at,
+            finished_at=local_now(),
+            elapsed_seconds=time.perf_counter() - started_perf,
         )
 
         if run_result.errors and not run_result.rows:

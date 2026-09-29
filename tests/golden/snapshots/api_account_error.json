@@ -1,0 +1,135 @@
+{
+ "artifacts": {
+  "errors": {
+   "delimiter": "|",
+   "header": [
+    "ID ACCOUNT",
+    "CABANG",
+    "BISNIS",
+    "ID iklan",
+    "Tahap",
+    "Error"
+   ],
+   "kind": "report",
+   "rows": [
+    [
+     "123",
+     "34THJO81",
+     "MGA",
+     "",
+     "Meta API",
+     "Simulasi kegagalan API Meta"
+    ],
+    [
+     "456",
+     "44MAA91",
+     "HMC",
+     "",
+     "Meta API",
+     "Simulasi kegagalan API Meta"
+    ]
+   ]
+  },
+  "info": {
+   "delimiter": "|",
+   "kind": "info",
+   "rows": [
+    [
+     "Mode",
+     "rinci"
+    ],
+    [
+     "Status",
+     "semua"
+    ],
+    [
+     "API Version",
+     "v25.0"
+    ],
+    [
+     "Awal pelaporan",
+     "01-08-2026"
+    ],
+    [
+     "Akhir pelaporan",
+     "05-08-2026"
+    ],
+    [
+     "Sumber tanggal",
+     "manual"
+    ],
+    [
+     "Format output",
+     "csv"
+    ],
+    [
+     "Delimiter CSV",
+     "pipe (|)"
+    ],
+    [
+     "Header CSV",
+     "ya"
+    ],
+    [
+     "Gambar tertanam",
+     "tidak"
+    ],
+    [
+     "Sumber akun",
+     "api"
+    ],
+    [
+     "Referensi sumber akun",
+     "https://api2nss.nusantara-sakti.co.id/ksapisvr"
+    ],
+    [
+     "Sumber token",
+     "Field Detail.token dari API DATAMETA; token tidak ditulis ke output, log, atau checkpoint."
+    ],
+    [
+     "Waktu pembuatan",
+     "<WAKTU_PEMBUATAN>"
+    ],
+    [
+     "Definisi status",
+     "Status efektif dibaca saat ekspor, bukan status historis pada tanggal laporan."
+    ],
+    [
+     "Definisi CTR",
+     "inline_link_click_ctr / CTR klik tautan, bukan CTR Semua"
+    ],
+    [
+     "Kategori waktu",
+     "Dini hari 00-04; Pagi 05-10; Siang 11-14; Sore 15-17; Malam 18-23."
+    ]
+   ]
+  },
+  "report": {
+   "delimiter": "|",
+   "header": [
+    "ID ACCOUNT",
+    "Nama akun",
+    "ID kampanye",
+    "Nama kampanye",
+    "ID iklan",
+    "Nama iklan",
+    "Tanggal",
+    "Waktu (zona waktu akun iklan)",
+    "Impresi",
+    "Frekuensi",
+    "Klik tautan",
+    "CTR klik tautan",
+    "Biaya per klik tautan",
+    "Hasil",
+    "Biaya per hasil",
+    "Jumlah yang dibelanjakan",
+    "CABANG",
+    "BISNIS",
+    "Tanggal proses"
+   ],
+   "kind": "report",
+   "rows": []
+  }
+ },
+ "exit_code": 1
+}

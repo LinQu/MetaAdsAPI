@@ -1,0 +1,14 @@
+{
+ "artifacts": {
+  "errors": {
+   "missing": true
+  },
+  "info": {
+   "missing": true
+  },
+  "report": {
+   "missing": true
+  }
+ },
+ "exit_code": 2
+}

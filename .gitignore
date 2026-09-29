@@ -6,3 +6,8 @@ __pycache__/
 *.checkpoint.sqlite3-shm
 *.xlsx
 *.csv
+.venv/
+.ruff_cache/
+.pytest_cache/
+*.egg-info/
+.~*

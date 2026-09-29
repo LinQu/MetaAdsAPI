@@ -1,4 +1,4 @@
-# Meta Ads Exporter 5.4.0
+# Meta Ads Exporter 5.5.0
 
 Exporter Meta Ads modular untuk menghasilkan laporan XLSX atau CSV. Program mendukung source akun dari **Excel** atau **API DATAMETA**, token berbeda per akun, retry, checkpoint/resume, data rinci hourly, result/frequency harian, dan output CSV untuk integrasi database.
 
@@ -142,13 +142,148 @@ python3 ScrapeMeta.py \
 
 Tidak perlu memberikan file Excel pada mode API.
 
-## Format CSV 5.4.0
 
-CSV menggunakan separator:
+## Lokasi output laporan
+
+Mulai v5.4.6, lokasi file laporan dapat dipilih tanpa menulis path panjang. Pada v5.4.7, hanya **file laporan utama** yang mengikuti lokasi tersebut; file teknis CSV dan checkpoint default tetap berada di folder project. Fitur ini tidak menambah dependency baru dan tetap dibangun dari basis v5.4.4.
+
+Pilihan:
 
 ```text
-|
+default = perilaku v5.4.4
+project = folder project yang berisi ScrapeMeta.py
+home    = folder laporan di home user (~/laporan)
 ```
+
+Contoh simpan ke folder project:
+
+```bash
+python3 ScrapeMeta.py \
+  --sumber-akun api \
+  --source-api-nohp "08xxxxxxxxxx" \
+  --mode rinci \
+  --status semua \
+  --since 2026-07-01 \
+  --until 2026-07-31 \
+  --format csv \
+  --output-location project \
+  --output meta_ads_juli.csv
+```
+
+Jika project berada di:
+
+```text
+D:\\MetaAdsAPI\\ScrapeMeta.py
+```
+
+maka file laporan dan file teknis sama-sama berada di project karena lokasi laporan juga `project`:
+
+```text
+D:\\MetaAdsAPI\\meta_ads_juli.csv
+D:\\MetaAdsAPI\\meta_ads_juli_errors.csv
+D:\\MetaAdsAPI\\meta_ads_juli_info.csv
+```
+
+Contoh simpan ke home user:
+
+```bash
+python3 ScrapeMeta.py \
+  --sumber-akun api \
+  --source-api-nohp "08xxxxxxxxxx" \
+  --mode rinci \
+  --status semua \
+  --since 2026-07-01 \
+  --until 2026-07-31 \
+  --format csv \
+  --output-location home \
+  --output meta_ads_juli.csv
+```
+
+Windows, contohnya menjadi:
+
+```text
+C:\\Users\\<user>\\laporan\\meta_ads_juli.csv
+```
+
+Linux/macOS, contohnya menjadi:
+
+```text
+/home/<user>/laporan/meta_ads_juli.csv
+```
+
+**Hanya file laporan utama** yang ditempatkan di `~/laporan`. File teknis tetap di folder project:
+
+```text
+<folder-project>/meta_ads_juli_errors.csv
+<folder-project>/meta_ads_juli_info.csv
+<folder-project>/meta_ads_juli.csv.checkpoint.sqlite3
+```
+
+Checkpoint default dihapus setelah sukses kecuali memakai `--keep-checkpoint`. Jika `--checkpoint` diberikan secara eksplisit, path checkpoint tersebut tetap dihormati.
+
+Folder `laporan` dibuat otomatis jika belum ada. Alias Indonesia juga tersedia:
+
+```bash
+--lokasi-output project
+--lokasi-output home
+```
+
+Bisa pula ditetapkan lewat `.env`:
+
+```text
+META_OUTPUT_LOCATION=project
+```
+
+atau:
+
+```text
+META_OUTPUT_LOCATION=home
+```
+
+Jika `--output` berisi **path absolut**, path absolut tersebut selalu dipakai dan `--output-location` tidak mengubahnya.
+
+## Format CSV
+
+Delimiter CSV sekarang fleksibel. Pilihan:
+
+```text
+comma     = ,
+tab       = TAB
+pipe      = |
+semicolon = ;
+```
+
+Default tetap `pipe`. Contoh:
+
+```bash
+python3 ScrapeMeta.py --sumber-akun api --source-api-nohp "08xxxxxxxxxx" \
+  --mode rinci --status semua --since 2026-07-01 --until 2026-07-31 \
+  --format csv --csv-delimiter semicolon --output meta_ads_juli.csv
+```
+
+Alias `--delimiter` juga dapat digunakan. Literal `,`, `|`, dan `;` didukung; untuk tab gunakan `tab` agar aman di shell.
+
+Header CSV secara default tetap ditulis. Untuk output tanpa header gunakan:
+
+```bash
+--csv-no-header
+```
+
+Alias Indonesia:
+
+```bash
+--tanpa-header-csv
+```
+
+Contoh lengkap:
+
+```bash
+python3 ScrapeMeta.py --sumber-akun api --source-api-nohp "08xxxxxxxxxx" \
+  --mode rinci --status semua --since 2026-07-01 --until 2026-07-31 \
+  --format csv --csv-delimiter pipe --csv-no-header --output meta_ads_juli.csv
+```
+
+Jika flag aktif, file utama, `_errors.csv`, dan `_info.csv` semuanya ditulis tanpa baris header. Output XLSX tidak terpengaruh.
 
 Tanggal menggunakan:
 
@@ -168,7 +303,7 @@ Header CSV utama:
 ID ACCOUNT|Nama akun|ID kampanye|Nama kampanye|ID iklan|Nama iklan|Tanggal|Waktu (zona waktu akun iklan)|Impresi|Frekuensi|Klik tautan|CTR klik tautan|Biaya per klik tautan|Hasil|Biaya per hasil|Jumlah yang dibelanjakan|CABANG|BISNIS|Tanggal proses
 ```
 
-Jika isi teks mengandung karakter `|`, Python CSV writer otomatis melakukan quoting agar struktur file tetap valid.
+Jika isi teks mengandung delimiter yang dipilih, Python CSV writer otomatis melakukan quoting agar struktur file tetap valid.
 
 File pendamping:
 
@@ -178,7 +313,7 @@ hasil_errors.csv
 hasil_info.csv
 ```
 
-Ketiganya memakai delimiter `|`.
+Ketiganya memakai delimiter yang sama dengan `--csv-delimiter`.
 
 ## Frequency mode rinci
 
@@ -239,8 +374,10 @@ Retry dilakukan untuk network error, HTTP 408, 429, dan 5xx.
 Default:
 
 ```text
-<output>.checkpoint.sqlite3
+<folder-project>/<nama-output>.checkpoint.sqlite3
 ```
+
+Checkpoint tidak ikut dipindahkan ke `~/laporan`; hanya file laporan utama yang mengikuti `--output-location home`.
 
 Resume:
 
@@ -264,28 +401,102 @@ Checkpoint tidak menyimpan raw token. Untuk source API, signature memakai finger
 ```text
 ScrapeMeta.py
 meta_ads_tool/
-├── api.py
-├── checkpoint.py
-├── cli.py
-├── constants.py
+├── __init__.py
+├── accounts/
+│   ├── datameta.py      # source akun API DATAMETA
+│   └── excel.py         # source akun Excel
+├── cli.py               # parser argumen + orkestrasi
+├── config_env.py        # konstanta env + normalisasi delimiter/status
+├── constants.py         # definisi kolom output
 ├── dates.py
-├── exporters.py
-├── input_api.py
-├── input_excel.py
+├── graph/
+│   └── client.py        # MetaAdsClient (Meta Marketing API)
 ├── logging_utils.py
-├── metrics.py
-├── runner.py
-└── transform.py
+├── paths.py             # project_root, home_report_directory
+├── processing/
+│   ├── flatten.py       # transform response -> baris laporan
+│   ├── metrics.py       # result/frequency harian
+│   └── runner.py        # run_accounts
+├── reporting/
+│   ├── csv_writer.py    # laporan CSV + file error/informasi
+│   ├── facade.py        # export_report (pilih XLSX/CSV)
+│   ├── info.py          # baris sheet/berkas Informasi
+│   ├── result.py        # ExportResult
+│   ├── schema.py        # kolom + delimiter
+│   ├── values.py        # konversi nilai sel
+│   └── xlsx/
+│       ├── images.py
+│       ├── styles.py
+│       └── writer.py
+├── storage/
+│   └── checkpoint.py
+└── summary.py           # ringkasan + durasi proses
 ```
 
 ## Pengujian
 
 ```bash
 python3 -m unittest discover -s tests -v
+# atau
+.venv/bin/python -m pytest tests/ -q
 ```
 
-Versi 5.4.0 memiliki 25 automated tests.
+Versi 5.5.0 memiliki 44 automated tests: 43 unit test hermetik dan 1 golden
+regression test (`tests/golden/`) yang membandingkan output terhadap 19 baseline
+snapshot. Baseline tidak boleh diregenerasi tanpa alasan eksplisit; jalankan
+`python3 tests/golden/regenerate.py --check` untuk memverifikasi kelengkapannya.
 
 ## Catatan keamanan
 
 Jangan commit file Excel berisi token atau `.env` produksi ke Git. Bila access token pernah dibagikan ke tempat yang tidak seharusnya, lakukan rotasi token sebelum dipakai untuk proses produksi.
+
+## Troubleshooting response DATAMETA bukan JSON
+
+Mulai v5.4.1, mode API default memakai:
+
+```bash
+--source-api-body-mode auto
+```
+
+`auto` mencoba request JSON terlebih dahulu lalu form-urlencoded jika response pertama tidak dapat diparse/digunakan.
+
+Untuk melihat diagnostic yang aman:
+
+```bash
+python3 ScrapeMeta.py \
+  --sumber-akun api \
+  --source-api-debug \
+  --mode rinci \
+  --status semua \
+  --since 2026-07-01 \
+  --until 2026-07-31 \
+  --format csv
+```
+
+Log debug menampilkan HTTP status, Content-Type, panjang response dan preview singkat. Field token/access_token dan noHP disensor.
+
+Jika server diketahui hanya menerima form-urlencoded, gunakan:
+
+```bash
+--source-api-body-mode form
+```
+
+Jika hanya menerima JSON body:
+
+```bash
+--source-api-body-mode json
+```
+
+## Ringkasan waktu proses
+
+Ringkasan akhir sekarang mencatat waktu mulai, waktu selesai, dan durasi total proses:
+
+```text
+RINGKASAN
+Mulai proses      : 2026-08-13 10:20:14
+Selesai proses    : 2026-08-13 10:38:56
+Durasi proses     : 00:18:42
+```
+
+Durasi memakai format `HH:MM:SS` dan dihitung dengan monotonic timer sehingga tidak terpengaruh perubahan jam sistem selama proses berjalan.
+
