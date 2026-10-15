@@ -1,4 +1,4 @@
-# Meta Ads Exporter 5.5.0
+# Meta Ads Exporter 5.5.1
 
 Exporter Meta Ads modular untuk menghasilkan laporan XLSX atau CSV. Program mendukung source akun dari **Excel** atau **API DATAMETA**, token berbeda per akun, retry, checkpoint/resume, data rinci hourly, result/frequency harian, dan output CSV untuk integrasi database.
 
@@ -325,15 +325,37 @@ Frequency mode rinci diambil dari query harian tanpa hourly breakdown. Nilai sep
 
 dipertahankan dan diulang pada setiap row jam untuk `ID iklan + Tanggal` yang sama. Jangan `SUM(Frekuensi)` saat agregasi dashboard.
 
-## Hasil mode rinci
+## Kolom Hasil
 
-`Hasil` hanya memakai indicator:
+Mulai v5.5.1, kolom `Hasil` dibaca dari field `results` dengan urutan prioritas
+tetap: **conversation lebih dulu, lalu leads**.
 
 ```text
-actions:onsite_conversion.messaging_conversation_started_7d
+1. actions:onsite_conversion.messaging_conversation_started_7d
+   messaging_conversation_started_7d
+   onsite_conversion.messaging_first_reply
+2. onsite_conversion.lead_grouped
+   lead
+   offsite_conversion.fb_pixel_lead
+   onsite_conversion.lead
 ```
 
-Jika indicator tersebut tidak ada, `Hasil` dikosongkan.
+Aturan importance:
+
+- Satu baris hanya berisi satu jenis hasil. Angka conversation **tidak**
+  dijumlahkan dengan angka leads.
+- Indikator dikenali dengan maupun tanpa awalan `actions:`.
+- Bila tidak ada indikator yang dikenali, `Hasil` dan `Biaya per hasil`
+  dikosongkan. Ini berlaku untuk goal selain conversation dan leads (purchase,
+  traffic, engagement, app install) yang belum dihitung.
+- `Biaya per hasil` memakai `cost_per_result` untuk indikator yang terpilih, atau
+  `Jumlah yang dibelanjakan / Hasil` bila Meta tidak menyediakannya.
+
+Karena Meta hanya mengembalikan indikator yang sesuai *performance goal* iklan,
+iklan ber-goal leads otomatis terisi dari leads tanpa konfigurasi tambahan.
+Aturan ini juga tercatat pada baris `Definisi Hasil` di berkas/sheet Informasi.
+
+### Hasil mode rinci
 
 Hasil harian hanya ditulis sekali pada row jam paling awal per `ID iklan + Tanggal`, sehingga `SUM(Hasil)` tidak terduplikasi 24 kali.
 
@@ -441,8 +463,8 @@ python3 -m unittest discover -s tests -v
 .venv/bin/python -m pytest tests/ -q
 ```
 
-Versi 5.5.0 memiliki 44 automated tests: 43 unit test hermetik dan 1 golden
-regression test (`tests/golden/`) yang membandingkan output terhadap 19 baseline
+Versi 5.5.1 memiliki 50 automated tests: 49 unit test hermetik dan 1 golden
+regression test (`tests/golden/`) yang membandingkan output terhadap 21 baseline
 snapshot. Baseline tidak boleh diregenerasi tanpa alasan eksplisit; jalankan
 `python3 tests/golden/regenerate.py --check` untuk memverifikasi kelengkapannya.
 

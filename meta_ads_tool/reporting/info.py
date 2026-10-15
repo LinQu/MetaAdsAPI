@@ -66,6 +66,12 @@ def information_rows(
             "Status efektif dibaca saat ekspor, bukan status historis pada tanggal laporan.",
         ],
         [
+            "Definisi Hasil",
+            "Dibaca dari indikator hasil yang dikembalikan Meta: conversation "
+            "lebih dulu, lalu leads. Kedua angka tidak dijumlahkan. Goal selain "
+            "conversation dan leads belum dihitung.",
+        ],
+        [
             "Definisi CTR",
             "inline_link_click_ctr / CTR klik tautan, bukan CTR Semua",
         ],

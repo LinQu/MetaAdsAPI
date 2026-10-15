@@ -1,0 +1,249 @@
+{
+ "artifacts": {
+  "errors": {
+   "delimiter": "|",
+   "header": [
+    "ID ACCOUNT",
+    "CABANG",
+    "BISNIS",
+    "ID iklan",
+    "Tahap",
+    "Error"
+   ],
+   "kind": "report",
+   "rows": []
+  },
+  "info": {
+   "delimiter": "|",
+   "kind": "info",
+   "rows": [
+    [
+     "Mode",
+     "rekap"
+    ],
+    [
+     "Status",
+     "semua"
+    ],
+    [
+     "API Version",
+     "v25.0"
+    ],
+    [
+     "Awal pelaporan",
+     "01-08-2026"
+    ],
+    [
+     "Akhir pelaporan",
+     "05-08-2026"
+    ],
+    [
+     "Sumber tanggal",
+     "manual"
+    ],
+    [
+     "Format output",
+     "csv"
+    ],
+    [
+     "Delimiter CSV",
+     "pipe (|)"
+    ],
+    [
+     "Header CSV",
+     "ya"
+    ],
+    [
+     "Gambar tertanam",
+     "tidak"
+    ],
+    [
+     "Sumber akun",
+     "excel"
+    ],
+    [
+     "Referensi sumber akun",
+     "<WORKSPACE>/project/akun.xlsx"
+    ],
+    [
+     "Sumber token",
+     "Kolom TOKEN pada file input; token tidak ditulis ke output, log, atau checkpoint."
+    ],
+    [
+     "Waktu pembuatan",
+     "<WAKTU_PEMBUATAN>"
+    ],
+    [
+     "Definisi status",
+     "Status efektif dibaca saat ekspor, bukan status historis pada tanggal laporan."
+    ],
+    [
+     "Definisi Hasil",
+     "Dibaca dari indikator hasil yang dikembalikan Meta: conversation lebih dulu, lalu leads. Kedua angka tidak dijumlahkan. Goal selain conversation dan leads belum dihitung."
+    ],
+    [
+     "Definisi CTR",
+     "inline_link_click_ctr / CTR klik tautan, bukan CTR Semua"
+    ],
+    [
+     "Kategori waktu",
+     "Dini hari 00-04; Pagi 05-10; Siang 11-14; Sore 15-17; Malam 18-23."
+    ]
+   ]
+  },
+  "report": {
+   "delimiter": "|",
+   "header": [
+    "ID ACCOUNT",
+    "Nama akun",
+    "ID kampanye",
+    "Nama kampanye",
+    "ID iklan",
+    "Nama iklan",
+    "Tanggal",
+    "Waktu (zona waktu akun iklan)",
+    "Impresi",
+    "Frekuensi",
+    "Klik tautan",
+    "CTR klik tautan",
+    "Biaya per klik tautan",
+    "Hasil",
+    "Biaya per hasil",
+    "Jumlah yang dibelanjakan",
+    "CABANG",
+    "BISNIS",
+    "Tanggal proses"
+   ],
+   "kind": "report",
+   "rows": [
+    [
+     "123",
+     "Akun Test 123",
+     "1001",
+     "Kampanye Juli",
+     "3001",
+     "Butuh dana cepat, tanpa ribet",
+     "",
+     "",
+     "1500628",
+     "1.150628",
+     "42",
+     "0.028",
+     "214.29",
+     "4",
+     "2250",
+     "9000",
+     "34THJO81",
+     "MGA",
+     "06-08-2026"
+    ],
+    [
+     "123",
+     "Akun Test 123",
+     "1001",
+     "Kampanye Juli",
+     "3002",
+     "'=1+1alice",
+     "",
+     "",
+     "1500628",
+     "1.150628",
+     "42",
+     "0.028",
+     "214.29",
+     "5",
+     "1800",
+     "9000",
+     "34THJO81",
+     "MGA",
+     "06-08-2026"
+    ],
+    [
+     "123",
+     "Akun Test 123",
+     "1001",
+     "Kampanye Juli",
+     "3003",
+     "Iklan Tanpa Hasil",
+     "",
+     "",
+     "1500628",
+     "1.150628",
+     "42",
+     "0.028",
+     "214.29",
+     "",
+     "",
+     "9000",
+     "34THJO81",
+     "MGA",
+     "06-08-2026"
+    ],
+    [
+     "456",
+     "Akun Test 456",
+     "1001",
+     "Kampanye Juli",
+     "4001",
+     "Butuh dana cepat, tanpa ribet",
+     "",
+     "",
+     "1500628",
+     "1.150628",
+     "42",
+     "0.028",
+     "214.29",
+     "4",
+     "2250",
+     "9000",
+     "33KDGP81",
+     "HMC",
+     "06-08-2026"
+    ],
+    [
+     "456",
+     "Akun Test 456",
+     "1001",
+     "Kampanye Juli",
+     "4002",
+     "'=1+1alice",
+     "",
+     "",
+     "1500628",
+     "1.150628",
+     "42",
+     "0.028",
+     "214.29",
+     "5",
+     "1800",
+     "9000",
+     "33KDGP81",
+     "HMC",
+     "06-08-2026"
+    ],
+    [
+     "456",
+     "Akun Test 456",
+     "1001",
+     "Kampanye Juli",
+     "4003",
+     "Iklan Tanpa Hasil",
+     "",
+     "",
+     "1500628",
+     "1.150628",
+     "42",
+     "0.028",
+     "214.29",
+     "",
+     "",
+     "9000",
+     "33KDGP81",
+     "HMC",
+     "06-08-2026"
+    ]
+   ]
+  }
+ },
+ "exit_code": 0
+}

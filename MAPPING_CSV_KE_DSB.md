@@ -24,7 +24,7 @@ Perubahan utama:
 | 11 | Klik tautan | `dsbjml2` | 396 | `double` | Jumlah link clicks. |
 | 12 | CTR klik tautan | `dsbper2` | 636 | `double` | Simpan skala CSV apa adanya: 0.45 berarti 0.45%. |
 | 13 | Biaya per klik tautan | `dsbhr1` | 708 | `double` | CPC per row. Untuk agregat lebih aman SUM(spend)/SUM(click). |
-| 14 | Hasil | `dsbjml3` | 404 | `double` | Result messaging target. Pada mode rinci hasil harian hanya ditulis sekali per ad+tanggal. |
+| 14 | Hasil | `dsbjml3` | 404 | `double` | Hasil utama: conversation lebih dulu, lalu leads (v5.5.1). Pada mode rinci hasil harian hanya ditulis sekali per ad+tanggal. |
 | 15 | Biaya per hasil | `dsbhr2` | 716 | `double` | Cost per result. Untuk agregat lebih aman SUM(spend)/SUM(hasil). |
 | 16 | Jumlah yang dibelanjakan | `dsbtot1` | 468 | `double` | Spend/biaya iklan. |
 | 17 | CABANG | `dsbtype2` | 93 | `TEXT[21]` | Cabang; masuk komponen index dashboard. |

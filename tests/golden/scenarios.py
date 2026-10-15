@@ -310,3 +310,32 @@ SCENARIOS["excel_rekap_xlsx_images"] = Scenario(
     "excel_rekap_xlsx_images",
     _image_runner("rekap_gambar.xlsx", harness.xlsx_files("rekap_gambar.xlsx")),
 )
+
+
+# ---------------------------------------------------------------------------
+# Skenario goals: kolom Hasil dari indikator lead
+# ---------------------------------------------------------------------------
+
+
+def _lead_runner(output, mode, files):
+    def runner(workspace):
+        argv = harness.excel_argv(workspace, mode=mode, output=output)
+        return harness.run_cli(
+            workspace,
+            argv,
+            files,
+            client_class=harness.LeadMetaClient,
+        )
+
+    return runner
+
+
+# Iklan ber-goal leads: kolom Hasil harus terisi dari indikator lead_grouped.
+SCENARIOS["excel_rinci_lead_result"] = Scenario(
+    "excel_rinci_lead_result",
+    _lead_runner("lead_rinci.csv", "rinci", harness.csv_files("lead_rinci.csv", "|")),
+)
+SCENARIOS["excel_rekap_lead_result"] = Scenario(
+    "excel_rekap_lead_result",
+    _lead_runner("lead_rekap.csv", "rekap", harness.csv_files("lead_rekap.csv", "|")),
+)

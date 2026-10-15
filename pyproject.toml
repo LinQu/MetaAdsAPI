@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "meta-ads-tool"
-version = "5.5.0"
+version = "5.5.1"
 description = "Exporter laporan Meta Ads ke XLSX/CSV dengan checkpoint dan resume."
 readme = "README.md"
 requires-python = ">=3.8"

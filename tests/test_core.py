@@ -560,7 +560,27 @@ class DailyResultsTests(unittest.TestCase):
         self.assertEqual(sum(float(row["Hasil"] or 0) for row in rows), 9.0)
 
 
-    def test_daily_result_ignores_other_indicators(self):
+    def test_daily_result_ignores_unrelated_indicators(self):
+        metric_type, result_value, cost_value = choose_daily_result_detail({
+            "ad_id": "52510676405480",
+            "date_start": "2026-07-01",
+            "spend": "9000",
+            "results": [
+                {
+                    "indicator": "actions:link_click",
+                    "values": [{"value": "123"}],
+                },
+                {
+                    "indicator": "actions:omni_purchase",
+                    "values": [{"value": "7"}],
+                },
+            ],
+        })
+        self.assertEqual(metric_type, "")
+        self.assertEqual(result_value, "")
+        self.assertEqual(cost_value, "")
+
+    def test_daily_result_falls_back_to_lead_indicator(self):
         metric_type, result_value, cost_value = choose_daily_result_detail({
             "ad_id": "52510676405480",
             "date_start": "2026-07-01",
@@ -576,9 +596,98 @@ class DailyResultsTests(unittest.TestCase):
                 },
             ],
         })
-        self.assertEqual(metric_type, "")
-        self.assertEqual(result_value, "")
-        self.assertEqual(cost_value, "")
+        self.assertEqual(metric_type, "actions:lead")
+        self.assertEqual(result_value, "99")
+        # Tanpa cost_per_result, biaya dihitung dari spend/hasil pada baris yang sama.
+        self.assertEqual(cost_value, str(9000.0 / 99))
+
+    def test_daily_result_prefers_conversation_over_lead(self):
+        metric_type, result_value, _ = choose_daily_result_detail({
+            "spend": "9000",
+            "results": [
+                {
+                    "indicator": "actions:onsite_conversion.lead_grouped",
+                    "values": [{"value": "40"}],
+                },
+                {
+                    "indicator": "actions:onsite_conversion."
+                    "messaging_conversation_started_7d",
+                    "values": [{"value": "9"}],
+                },
+            ],
+        })
+        self.assertEqual(
+            metric_type,
+            "actions:onsite_conversion.messaging_conversation_started_7d",
+        )
+        self.assertEqual(result_value, "9")
+
+    def test_daily_result_conversation_wins_over_unprefixed_lead(self):
+        # Regresi: conversation berawalan "actions:" pernah kalah dari lead tanpa
+        # awalan karena perbandingan tidak dinormalisasi.
+        metric_type, result_value, _ = choose_daily_result_detail({
+            "spend": "9000",
+            "results": [
+                {"indicator": "lead", "values": [{"value": "40"}]},
+                {
+                    "indicator": "actions:onsite_conversion."
+                    "messaging_conversation_started_7d",
+                    "values": [{"value": "9"}],
+                },
+            ],
+        })
+        self.assertEqual(
+            metric_type,
+            "actions:onsite_conversion.messaging_conversation_started_7d",
+        )
+        self.assertEqual(result_value, "9")
+
+    def test_daily_result_priority_ignores_prefix_and_payload_order(self):
+        conversation = "actions:onsite_conversion.messaging_conversation_started_7d"
+        lead = "onsite_conversion.lead"
+
+        for indicators in ([conversation, lead], [lead, conversation]):
+            metric_type, result_value, _ = choose_daily_result_detail({
+                "spend": "9000",
+                "results": [
+                    {"indicator": name, "values": [{"value": "5"}]}
+                    for name in indicators
+                ],
+            })
+            self.assertEqual(metric_type, conversation)
+            self.assertEqual(result_value, "5")
+
+    def test_daily_result_matches_cost_across_prefix_difference(self):
+        metric_type, result_value, cost_value = choose_daily_result_detail({
+            "spend": "9000",
+            "results": [{
+                "indicator": "onsite_conversion.lead_grouped",
+                "values": [{"value": "4"}],
+            }],
+            "cost_per_result": [{
+                "indicator": "actions:onsite_conversion.lead_grouped",
+                "values": [{"value": "2250"}],
+            }],
+        })
+        self.assertEqual(metric_type, "onsite_conversion.lead_grouped")
+        self.assertEqual(result_value, "4")
+        self.assertEqual(cost_value, "2250")
+
+    def test_daily_result_uses_cost_for_selected_lead_indicator(self):
+        metric_type, result_value, cost_value = choose_daily_result_detail({
+            "spend": "9000",
+            "results": [{
+                "indicator": "actions:onsite_conversion.lead_grouped",
+                "values": [{"value": "10"}],
+            }],
+            "cost_per_result": [{
+                "indicator": "actions:onsite_conversion.lead_grouped",
+                "values": [{"value": "900.0"}],
+            }],
+        })
+        self.assertEqual(metric_type, "actions:onsite_conversion.lead_grouped")
+        self.assertEqual(result_value, "10")
+        self.assertEqual(cost_value, "900.0")
 
     def test_daily_result_uses_exact_messaging_indicator(self):
         metric_type, result_value, cost_value = choose_daily_result_detail({

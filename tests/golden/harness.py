@@ -185,40 +185,47 @@ def _hourly_rows(since, account_id):
     return rows
 
 
+def _daily_row(ad, since, index, results, cost_value=None):
+    """Satu barik insight harian tanpa breakdown jam."""
+    return {
+        "campaign_id": "1001",
+        "campaign_name": "Kampanye Juli",
+        "adset_id": "2001",
+        "adset_name": "Set Iklan",
+        "ad_id": ad["ad_id"],
+        "ad_name": ad["ad_name"],
+        "date_start": since,
+        "impressions": "1500628",
+        "reach": "1000000",
+        "frequency": "1.150628",
+        "spend": "9000",
+        "objective": "OUTCOME_ENGAGEMENT",
+        "optimization_goal": "CONVERSATIONS",
+        "results": results,
+        "cost_per_result": (
+            [{"indicator": results[0]["indicator"], "values": [{"value": cost_value}]}]
+            if results and cost_value is not None
+            else []
+        ),
+    }
+
+
 def _daily_rows(since, account_id):
     rows = []
     for index, ad in enumerate(_ads(account_id)):
+        results = (
+            [{"indicator": TARGET_RESULT_INDICATOR, "values": [{"value": str(9 + index)}]}]
+            if index < 2
+            else []
+        )
         rows.append(
-            {
-                "campaign_id": "1001",
-                "campaign_name": "Kampanye Juli",
-                "adset_id": "2001",
-                "adset_name": "Set Iklan",
-                "ad_id": ad["ad_id"],
-                "ad_name": ad["ad_name"],
-                "date_start": since,
-                "impressions": "1500628",
-                "reach": "1000000",
-                "frequency": "1.150628",
-                "spend": "9000",
-                "objective": "OUTCOME_ENGAGEMENT",
-                "optimization_goal": "CONVERSATIONS",
-                "results": (
-                    [{"indicator": TARGET_RESULT_INDICATOR, "values": [{"value": str(9 + index)}]}]
-                    if index < 2
-                    else []
-                ),
-                "cost_per_result": (
-                    [
-                        {
-                            "indicator": TARGET_RESULT_INDICATOR,
-                            "values": [{"value": str(9000.0 / (9 + index))}],
-                        }
-                    ]
-                    if index < 2
-                    else []
-                ),
-            }
+            _daily_row(
+                ad,
+                since,
+                index,
+                results,
+                cost_value=str(9000.0 / (9 + index)) if index < 2 else None,
+            )
         )
     return rows
 
@@ -390,6 +397,69 @@ class FailingMetaClient(FakeMetaClient):
 
     def fetch_all_insights(self, account_id, mode, since, until):
         raise RuntimeError("Simulasi kegagalan API Meta")
+
+
+LEAD_RESULT_INDICATOR = "actions:onsite_conversion.lead_grouped"
+
+
+class LeadMetaClient(FakeMetaClient):
+    """Iklan ber-goal leads: ``results`` hanya berisi indikator lead.
+
+    Menutmaskah fixture conversation supaya skenario ini membuktikan bahwa
+    kolom Hasil terisi dari lead ketika tidak ada conversation.
+    """
+
+    def fetch_adsets(self, account_id):
+        adsets = dict(FakeMetaClient.fetch_adsets(self, account_id))
+
+        for adset in adsets.values():
+            adset = dict(adset)
+            adset["optimization_goal"] = "LEADS"
+            adsets[adset["id"]] = adset
+
+        return adsets
+
+    def fetch_all_insights(self, account_id, mode, since, until):
+        if mode != "rekap":
+            return FakeMetaClient.fetch_all_insights(
+                self, account_id, mode, since, until
+            )
+
+        rows = []
+        for index, row in enumerate(_rekap_rows(since, until, account_id)):
+            row = dict(row)
+            row["optimization_goal"] = "LEADS"
+            value = str(4 + index)
+            row["results"] = (
+                [{"indicator": LEAD_RESULT_INDICATOR, "values": [{"value": value}]}]
+                if index < 2
+                else []
+            )
+            row["cost_per_result"] = (
+                [{"indicator": LEAD_RESULT_INDICATOR, "values": [{"value": str(9000.0 / int(value))}]}]
+                if index < 2
+                else []
+            )
+            rows.append(row)
+
+        return rows, []
+
+    def fetch_daily_result_insights(self, account_id, since, until):
+        rows = []
+        for index, ad in enumerate(_ads(account_id)):
+            if index >= 2:
+                # Iklan ketiga tetap tanpa hasil agar kasus kosong ikut teruji.
+                rows.append(_daily_row(ad, since, index, []))
+                continue
+            value = str(4 + index)
+            rows.append(_daily_row(ad, since, index, [
+                {
+                    "indicator": LEAD_RESULT_INDICATOR,
+                    "values": [{"value": value}],
+                }
+            ], cost_value=str(9000.0 / int(value))))
+
+        return rows, []
 
 
 # ---------------------------------------------------------------------------

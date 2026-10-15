@@ -7,7 +7,11 @@ import sqlite3
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set
 
-SCHEMA_VERSION = "5"
+# 5.5.1 menaikkan versi ke "6": kolom Hasil kini bisa diisi dari indikator lead
+# selain conversation. Checkpoint versi lama berisi baris dengan kolom Hasil
+# kosong untuk akun lead, sehingga dicadangkan dari resume agar laporan tidak
+# mencampur baris lama dan baru.
+SCHEMA_VERSION = "6"
 
 
 def file_sha256(path: str, chunk_size: int = 1024 * 1024) -> str:
